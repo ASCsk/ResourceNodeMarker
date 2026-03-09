@@ -46,10 +46,10 @@ void URNM_WorldSubsystem::ScanResourceNodes()
 
         if (!Node) continue;
 
-        // Filter: miner nodes only
-        if (Node->GetResourceNodeType() != EResourceNodeType::Node)
+        // Filter: extractable nodes only
+        if (!Node->CanPlaceResourceExtractor())
         {
-            continue;
+            continue; // skip deposits, geysers, etc
         }
 
         FNodeInfo Info;
