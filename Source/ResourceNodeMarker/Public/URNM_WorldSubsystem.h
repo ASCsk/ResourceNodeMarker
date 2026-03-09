@@ -2,14 +2,26 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "Engine/World.h"
 #include "EngineUtils.h"
 #include "FGResourceNode.h"
+#include "TimerManager.h"
+
 #include "URNM_WorldSubsystem.generated.h"
 
-/**
- * World subsystem for Resource Node Marker (RNM)
- * Counts all resource nodes once the world has begun play
- */
+#define PLAYER_PROXIMITY 2000.0f // cm
+
+USTRUCT()
+struct FNodeInfo
+{
+    GENERATED_BODY()
+
+    FVector Location;
+    FString ResourceName;
+    EResourcePurity Purity;
+    AFGResourceNode* NodeActor;
+};
+
 UCLASS()
 class RESOURCENODEMARKER_API URNM_WorldSubsystem : public UWorldSubsystem
 {
@@ -20,6 +32,12 @@ public:
     virtual void Deinitialize() override;
 
 private:
-    /** Scans all resource nodes in the world after BeginPlay */
     void ScanResourceNodes();
+    void CheckPlayerProximity();
+
+private:
+    TArray<FNodeInfo> ResourceNodes;
+    TSet<AFGResourceNode*> ScannedNodes;
+    FTimerHandle ProximityTimerHandle;
+    float PlayerProximityThreshold = PLAYER_PROXIMITY; 
 };
