@@ -1,5 +1,3 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
 #include "ResourceNodeMarker.h"
 
 #define LOCTEXT_NAMESPACE "FResourceNodeMarkerModule"
@@ -8,16 +6,14 @@ DEFINE_LOG_CATEGORY(LogResourceNodeMarker);
 
 void FResourceNodeMarkerModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
-	UE_LOG(LogResourceNodeMarker, Warning, TEXT("ResourceNodeMarker module loaded"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("ResourceNodeMarker module loaded"));
 }
 
 void FResourceNodeMarkerModule::ShutdownModule()
 {
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
+    // cleanup
 }
 
 #undef LOCTEXT_NAMESPACE
-	
+
 IMPLEMENT_MODULE(FResourceNodeMarkerModule, ResourceNodeMarker)
