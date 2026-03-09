@@ -110,11 +110,14 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
             }
 
             UE_LOG(LogResourceNodeMarker, Warning,
-                TEXT("Player near resource node: %s | Resource: %s | Purity: %s | Distance: %.2f m"),
+                TEXT("Player near resource node: %s | Resource: %s | Purity: %s | Distance: %.2f m | Location: X=%.0f Y=%.0f Z=%.0f"),
                 *NodeInfo.NodeActor->GetName(),
                 *NodeInfo.ResourceName,
                 *PurityString,
-                Distance / 100.0f
+                Distance / 100.0f,
+                NodeInfo.Location.X,
+                NodeInfo.Location.Y,
+                NodeInfo.Location.Z
             );
         }
     }
