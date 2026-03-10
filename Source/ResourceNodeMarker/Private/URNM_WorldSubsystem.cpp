@@ -131,15 +131,36 @@ void URNM_WorldSubsystem::SpawnMapMarker(const FNodeInfo& NodeInfo)
         return;
     }
 
+    //TArray<FMapMarker> AllMarkers;
+    //MapManager->GetMapMarkers(AllMarkers);
+
+    //for (const FMapMarker& Marker : AllMarkers)
+    //{
+    //    UE_LOG(LogTemp, Warning,
+    //        TEXT(
+    //            "Marker: %s | GUID: %s | Type: %d | IconID: %d | Color: R=%.2f G=%.2f B=%.2f A=%.2f | Scale: %.2f | CompassView: %d | Category: %s | PlacedByAccountID: %s | CreatedByPlayerID: %s"
+    //        ),
+    //        *Marker.Name,
+    //        *Marker.MarkerGUID.ToString(),
+    //        (int)Marker.MapMarkerType,
+    //        Marker.IconID,
+    //        Marker.Color.R,
+    //        Marker.Color.G,
+    //        Marker.Color.B,
+    //        Marker.Color.A,
+    //        Marker.Scale,
+    //        (int)Marker.CompassViewDistance,
+    //        *Marker.CategoryName,
+    //        *Marker.MarkerPlacedByAccountID,
+    //        *Marker.CreatedByPlayerID.ToString()
+    //    );
+    //}
+
     FMapMarker Marker;
 
-    // Unique ID
     Marker.MarkerGUID = FGuid::NewGuid();
-
-    // Location of resource node
     Marker.Location = NodeInfo.Location;
 
-    // Marker label
     FString PurityString = GetPurityString(NodeInfo.Purity);
 
     Marker.Name = FString::Printf(
@@ -147,36 +168,15 @@ void URNM_WorldSubsystem::SpawnMapMarker(const FNodeInfo& NodeInfo)
         *NodeInfo.ResourceName,
         *PurityString
     );
-
-
+    Marker.MapMarkerType = static_cast<ERepresentationType>(16);
+    Marker.IconID = 660;
+    Marker.CategoryName = TEXT("");
     Marker.Scale = 1.0f;
     Marker.Color = FLinearColor::White;
     Marker.CompassViewDistance = ECompassViewDistance::CVD_Always;
-    Marker.MapMarkerType = ERepresentationType::RT_Default;
-
-    // Ownership (needed for editing in UI?)
-    APlayerController* BasePC = UGameplayStatics::GetPlayerController(World, 0);
-    if (!BasePC)
-    {
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("Stage 2: No player controller found"));
-        return;
-    }
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("Stage 2: Found base player controller: %s"), *BasePC->GetName());
-
-    // Stage 3: cast to AFGPlayerController
-    AFGPlayerController* PC = Cast<AFGPlayerController>(BasePC);
-    if (!PC)
-    {
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("Stage 3: Cast to AFGPlayerController failed"));
-        return;
-    }
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("Stage 3: Successfully cast to AFGPlayerController: %s"), *PC->GetName());
-
-    FString AccountID = MapManager->GetLocalPlayerID().ToString(); // fallback if you can't get FString from PlayerState
-    Marker.MarkerPlacedByAccountID = AccountID;
     Marker.CreatedByPlayerID = MapManager->GetLocalPlayerID();
+    Marker.MarkerPlacedByAccountID = MapManager->GetLocalPlayerID().ToString();
 
-    // Optional: color by purity
     switch (NodeInfo.Purity)
     {
         case RP_Inpure: Marker.Color = FLinearColor::Red; break;
@@ -192,7 +192,6 @@ void URNM_WorldSubsystem::SpawnMapMarker(const FNodeInfo& NodeInfo)
     if (bSuccess)
     {
         UE_LOG(LogResourceNodeMarker, Warning, TEXT("SpawnMapMarker: MarkerCreatedByPlayerID (GUID) = %s"), *Marker.CreatedByPlayerID.ToString());
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("SpawnMapMarker: MarkerPlacedByAccountID (FString) = %s"), *Marker.MarkerPlacedByAccountID);
         UE_LOG(LogResourceNodeMarker, Warning,
             TEXT("RNM: Map marker created for %s"),
             *NodeInfo.ResourceName);
@@ -200,7 +199,6 @@ void URNM_WorldSubsystem::SpawnMapMarker(const FNodeInfo& NodeInfo)
     else
     {
         UE_LOG(LogResourceNodeMarker, Warning, TEXT("SpawnMapMarker: MarkerCreatedByPlayerID (GUID) = %s"), *Marker.CreatedByPlayerID.ToString());
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("SpawnMapMarker: MarkerPlacedByAccountID (FString) = %s"), *Marker.MarkerPlacedByAccountID);
         UE_LOG(LogResourceNodeMarker, Warning,
             TEXT("RNM: Failed to create marker for %s"),
             *NodeInfo.ResourceName);
