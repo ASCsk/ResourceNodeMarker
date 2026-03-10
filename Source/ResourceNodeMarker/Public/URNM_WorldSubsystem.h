@@ -34,6 +34,8 @@ public:
 private:
     void ScanResourceNodes();
     void CheckPlayerProximity();
+    void SpawnMapMarker(const FNodeInfo& NodeInfo);
+    FString GetPurityString(EResourcePurity Purity) const;
 
 private:
     TArray<FNodeInfo> ResourceNodes;
