@@ -3,24 +3,14 @@
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "Engine/World.h"
-#include "EngineUtils.h"
-#include "FGResourceNode.h"
 #include "TimerManager.h"
 
-#include "URNM_WorldSubsystem.generated.h"
+#include "RNM_ResourceNodeInfo.h"
+#include "RNM_ResourceVisuals.h"
 
-#define PLAYER_PROXIMITY 2000.0f // cm
+#include "RNM_WorldSubsystem.generated.h"
 
-USTRUCT()
-struct FNodeInfo
-{
-    GENERATED_BODY()
-
-    FVector Location;
-    FString ResourceName;
-    EResourcePurity Purity;
-    AFGResourceNode* NodeActor;
-};
+#define PLAYER_PROXIMITY 20000.0f // cm
 
 UCLASS()
 class RESOURCENODEMARKER_API URNM_WorldSubsystem : public UWorldSubsystem
@@ -32,13 +22,11 @@ public:
     virtual void Deinitialize() override;
 
 private:
-    void ScanResourceNodes();
     void CheckPlayerProximity();
-    void SpawnMapMarker(const FNodeInfo& NodeInfo);
-    FString GetPurityString(EResourcePurity Purity) const;
+    void ScanAllNodes();
 
 private:
-    TArray<FNodeInfo> ResourceNodes;
+    TArray<FResourceNodeInfo> ResourceNodes;
     TSet<AFGResourceNode*> ScannedNodes;
     FTimerHandle ProximityTimerHandle;
     float PlayerProximityThreshold = PLAYER_PROXIMITY;

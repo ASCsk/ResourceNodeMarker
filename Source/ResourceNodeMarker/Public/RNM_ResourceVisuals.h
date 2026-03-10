@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
-#include "URNM_ResourceVisuals.generated.h"
+#include "RNM_ResourceVisuals.generated.h"
 
 USTRUCT(BlueprintType)
 struct FResourceVisual

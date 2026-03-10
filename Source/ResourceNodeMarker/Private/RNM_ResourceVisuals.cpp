@@ -1,4 +1,4 @@
-#include "URNM_ResourceVisuals.h"
+#include "RNM_ResourceVisuals.h"
 
 #include "FGResourceDescriptor.h"
 #include "FGItemDescriptor.h"
