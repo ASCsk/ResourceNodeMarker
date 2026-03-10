@@ -41,5 +41,8 @@ private:
     TArray<FNodeInfo> ResourceNodes;
     TSet<AFGResourceNode*> ScannedNodes;
     FTimerHandle ProximityTimerHandle;
-    float PlayerProximityThreshold = PLAYER_PROXIMITY; 
+    float PlayerProximityThreshold = PLAYER_PROXIMITY;
+
+    UPROPERTY()
+    URNM_ResourceVisuals* ResourceVisuals;
 };

@@ -10,6 +10,9 @@
 #include "FGPlayerController.h"
 #include "FGPlayerState.h"
 #include "Kismet/GameplayStatics.h" //for player controller
+#include "URNM_ResourceVisuals.h"
+
+constexpr ERepresentationType MarkerType = static_cast<ERepresentationType>(16);
 
 
 void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -35,6 +38,8 @@ void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
         0.25f, // every 250 ms
         true
     );
+
+    ResourceVisuals = NewObject<URNM_ResourceVisuals>(this);
 }
 
 void URNM_WorldSubsystem::ScanResourceNodes()
@@ -55,7 +60,7 @@ void URNM_WorldSubsystem::ScanResourceNodes()
         // Filter: extractable nodes only
         if (!Node->CanPlaceResourceExtractor())
         {
-            continue; // skip deposits, geysers, etc
+            continue;
         }
 
         FNodeInfo Info;
@@ -117,72 +122,29 @@ void URNM_WorldSubsystem::SpawnMapMarker(const FNodeInfo& NodeInfo)
     UWorld* World = GetWorld();
     if (!World) return;
 
-
     AFGMapManager* MapManager = AFGMapManager::Get(World);
-    if (!MapManager)
-    {
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: MapManager not found"));
-        return;
-    }
+    if (!MapManager) return;
 
-    if (!MapManager->CanAddNewMapMarker())
-    {
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Map marker limit reached"));
-        return;
-    }
-
-    //TArray<FMapMarker> AllMarkers;
-    //MapManager->GetMapMarkers(AllMarkers);
-
-    //for (const FMapMarker& Marker : AllMarkers)
-    //{
-    //    UE_LOG(LogTemp, Warning,
-    //        TEXT(
-    //            "Marker: %s | GUID: %s | Type: %d | IconID: %d | Color: R=%.2f G=%.2f B=%.2f A=%.2f | Scale: %.2f | CompassView: %d | Category: %s | PlacedByAccountID: %s | CreatedByPlayerID: %s"
-    //        ),
-    //        *Marker.Name,
-    //        *Marker.MarkerGUID.ToString(),
-    //        (int)Marker.MapMarkerType,
-    //        Marker.IconID,
-    //        Marker.Color.R,
-    //        Marker.Color.G,
-    //        Marker.Color.B,
-    //        Marker.Color.A,
-    //        Marker.Scale,
-    //        (int)Marker.CompassViewDistance,
-    //        *Marker.CategoryName,
-    //        *Marker.MarkerPlacedByAccountID,
-    //        *Marker.CreatedByPlayerID.ToString()
-    //    );
-    //}
+    FResourceVisual Visual = ResourceVisuals->GetResourceVisual(NodeInfo.ResourceName);
 
     FMapMarker Marker;
-
     Marker.MarkerGUID = FGuid::NewGuid();
     Marker.Location = NodeInfo.Location;
-
-    FString PurityString = GetPurityString(NodeInfo.Purity);
-
-    Marker.Name = FString::Printf(
-        TEXT("%s (%s)"),
-        *NodeInfo.ResourceName,
-        *PurityString
-    );
-    Marker.MapMarkerType = static_cast<ERepresentationType>(16);
-    Marker.IconID = 660;
+    Marker.Name = FString::Printf(TEXT("%s (%s)"), *NodeInfo.ResourceName, *GetPurityString(NodeInfo.Purity));
+    Marker.MapMarkerType = ERepresentationType::RT_MapMarker;
+    Marker.IconID = Visual.IconID;
+    Marker.Color = FLinearColor::White;
     Marker.CategoryName = TEXT("");
     Marker.Scale = 1.0f;
-    Marker.Color = FLinearColor::White;
     Marker.CompassViewDistance = ECompassViewDistance::CVD_Always;
     Marker.CreatedByPlayerID = MapManager->GetLocalPlayerID();
-    Marker.MarkerPlacedByAccountID = MapManager->GetLocalPlayerID().ToString();
 
     switch (NodeInfo.Purity)
     {
-        case RP_Inpure: Marker.Color = FLinearColor::Red; break;
-        case RP_Normal: Marker.Color = FLinearColor::Yellow; break;
-        case RP_Pure: Marker.Color = FLinearColor::Green; break;
-        default: Marker.Color = FLinearColor::White; break;
+        case RP_Pure:   Marker.Color = Visual.PureColor; break;
+        case RP_Normal: Marker.Color = Visual.NormalColor; break;
+        case RP_Inpure: Marker.Color = Visual.ImpureColor; break;
+        default:        Marker.Color = FLinearColor::White; break;
     }
 
     FMapMarker CreatedMarker;
@@ -191,17 +153,11 @@ void URNM_WorldSubsystem::SpawnMapMarker(const FNodeInfo& NodeInfo)
 
     if (bSuccess)
     {
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("SpawnMapMarker: MarkerCreatedByPlayerID (GUID) = %s"), *Marker.CreatedByPlayerID.ToString());
-        UE_LOG(LogResourceNodeMarker, Warning,
-            TEXT("RNM: Map marker created for %s"),
-            *NodeInfo.ResourceName);
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Map marker created for %s"), *NodeInfo.ResourceName);
     }
     else
     {
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("SpawnMapMarker: MarkerCreatedByPlayerID (GUID) = %s"), *Marker.CreatedByPlayerID.ToString());
-        UE_LOG(LogResourceNodeMarker, Warning,
-            TEXT("RNM: Failed to create marker for %s"),
-            *NodeInfo.ResourceName);
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Failed to create marker for %s"), *NodeInfo.ResourceName);
     }
 }
 
