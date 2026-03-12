@@ -10,6 +10,7 @@
 
 #include "RNM_WorldSubsystem.generated.h"
 
+UPROPERTY(EditAnywhere)
 #define PLAYER_PROXIMITY 20000.0f // cm
 
 UCLASS()
@@ -27,9 +28,10 @@ private:
 
 private:
     TArray<FResourceNodeInfo> ResourceNodes;
-    TSet<AFGResourceNode*> ScannedNodes;
+    TSet<TWeakObjectPtr<AFGResourceNode>> ScannedNodes;
     FTimerHandle ProximityTimerHandle;
     float PlayerProximityThreshold = PLAYER_PROXIMITY;
+    float PlayerProximityThresholdSq = PlayerProximityThreshold * PlayerProximityThreshold;
 
     UPROPERTY()
     URNM_ResourceVisuals* ResourceVisuals;

@@ -4,7 +4,7 @@ void RNM_NodeScanner::ScanNodes(UWorld* World, TArray<FResourceNodeInfo>& OutNod
 {
     if (!World) return;
 
-    OutNodes.Empty();
+    OutNodes.Reset();
 
     for (TActorIterator<AFGResourceNode> It(World); It; ++It)
     {

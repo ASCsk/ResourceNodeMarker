@@ -14,7 +14,8 @@ void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
     if (!World) return;
 
     // Only run in actual gameplay level
-    if (World->GetName() != "Persistent_Level") return;
+    /*if (World->GetName() != "Persistent_Level") return;*/
+    if (World->WorldType != EWorldType::Game)
 
     UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Subsystem running in gameplay world"));
 
@@ -45,7 +46,10 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
     UWorld* World = GetWorld();
     if (!World) return;
 
-    APawn* PlayerPawn = World->GetFirstPlayerController()->GetPawn();
+    APlayerController* PC = World->GetFirstPlayerController();
+    if (!PC) return;
+
+    APawn* PlayerPawn = PC->GetPawn();
     if (!PlayerPawn) return;
 
     const FVector PlayerLocation = PlayerPawn->GetActorLocation();
@@ -55,9 +59,9 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
         if (!NodeInfo.NodeActor || ScannedNodes.Contains(NodeInfo.NodeActor))
             continue;
 
-        const float Distance = FVector::Dist(PlayerLocation, NodeInfo.Location);
+        const float Distance = FVector::DistSquared(PlayerLocation, NodeInfo.Location);
 
-        if (Distance <= PlayerProximityThreshold)
+        if (Distance <= PlayerProximityThresholdSq)
         {
             ScannedNodes.Add(NodeInfo.NodeActor);
 

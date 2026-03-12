@@ -13,7 +13,7 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
             return FLinearColor::FromSRGBColor(FColor::FromHex(Hex));
         };
 
-    auto AddSolid = [&](const FString& Name, const FString& Impure, const FString& Normal, const FString& Pure)
+    auto AddSolid = [&](const FName& Name, const FString& Impure, const FString& Normal, const FString& Pure)
         {
             FResourceVisual Visual;
             Visual.IconID = Icons.Rock;
@@ -24,7 +24,7 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
             ResourceVisualMap.Add(Name, Visual);
         };
 
-    auto AddLiquid = [&](const FString& Name, const FString& Impure, const FString& Normal, const FString& Pure)
+    auto AddLiquid = [&](const FName& Name, const FString& Impure, const FString& Normal, const FString& Pure)
         {
             FResourceVisual Visual;
             Visual.IconID = Icons.Fluids;
@@ -56,10 +56,10 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
 
     AddLiquid(TEXT("Water"), "00CCB8", "17E3CE", "4FFFEC");
     AddLiquid(TEXT("Crude Oil"), "101010", "1F1F1F", "474747");
-    AddLiquid(TEXT("Nitrogen"), "828282", "A6A6A6", "D4D2D2");
+    AddLiquid(TEXT("Nitrogen Gas"), "828282", "A6A6A6", "D4D2D2");
 }
 
-FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FString& ResourceName) const
+FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceName) const
 {
     if (const FResourceVisual* Found = ResourceVisualMap.Find(ResourceName))
     {

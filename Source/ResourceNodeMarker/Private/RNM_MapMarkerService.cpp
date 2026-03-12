@@ -8,7 +8,7 @@ bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& 
     AFGMapManager* MapManager = AFGMapManager::Get(World);
     if (!MapManager) return false;
 
-    FResourceVisual Visual = ResourceVisuals->GetResourceVisual(NodeInfo.ResourceName.ToString());
+    FResourceVisual Visual = ResourceVisuals->GetResourceVisual(NodeInfo.ResourceName);
 
     FMapMarker Marker;
     Marker.MarkerGUID = FGuid::NewGuid();

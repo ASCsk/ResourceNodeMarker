@@ -47,9 +47,9 @@ public:
 
     // Map resource name -> visual info
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resources")
-    TMap<FString, FResourceVisual> ResourceVisualMap;
+    TMap<FName, FResourceVisual> ResourceVisualMap;
 
     // Helper to get a visual by resource name
     UFUNCTION(BlueprintPure, Category = "Resources")
-    FResourceVisual GetResourceVisual(const FString& ResourceName) const;
+    FResourceVisual GetResourceVisual(const FName& ResourceName) const;
 };
