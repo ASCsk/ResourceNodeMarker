@@ -10,7 +10,6 @@
 
 #include "RNM_WorldSubsystem.generated.h"
 
-UPROPERTY(EditAnywhere)
 #define PLAYER_PROXIMITY 20000.0f // cm
 
 UCLASS()
