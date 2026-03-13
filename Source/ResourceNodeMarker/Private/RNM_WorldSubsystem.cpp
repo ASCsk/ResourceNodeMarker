@@ -5,6 +5,7 @@
 #include "ResourceNodeMarker.h" // logging category
 #include "RNM_NodeScanner.h"
 #include "RNM_MapMarkerService.h"
+#include "ResourceNodeMarker_ConfigStruct.h"
 
 void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -19,6 +20,7 @@ void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
     UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Subsystem running in gameplay world"));
 
+    World->OnWorldBeginPlay.AddUObject(this, &URNM_WorldSubsystem::InitializeConfig);
     // Scan all nodes once the world begins play
     World->OnWorldBeginPlay.AddUObject(this, &URNM_WorldSubsystem::ScanAllNodes);
 
@@ -59,6 +61,22 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
         if (!NodeInfo.NodeActor || ScannedNodes.Contains(NodeInfo.NodeActor))
             continue;
 
+        if (bConfigLoaded)
+        {
+            const bool bPurityEnabled =
+                (NodeInfo.Purity == RP_Pure && ConfigData.bMarkPure) ||
+                (NodeInfo.Purity == RP_Normal && ConfigData.bMarkNormal) ||
+                (NodeInfo.Purity == RP_Inpure && ConfigData.bMarkImpure);
+
+            if (!bPurityEnabled)
+            {
+                UE_LOG(LogResourceNodeMarker, Warning,
+                    TEXT("RNM: Skipping %s - purity %d filtered by config"),
+                    *NodeInfo.ResourceName.ToString(), (int32)NodeInfo.Purity);
+                continue;
+            }
+        }
+
         const float Distance = FVector::DistSquared(PlayerLocation, NodeInfo.Location);
 
         if (Distance <= PlayerProximityThresholdSq)
@@ -73,6 +91,18 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
             }
         }
     }
+}
+
+void URNM_WorldSubsystem::InitializeConfig()
+{
+    ConfigData = FResourceNodeMarker_ConfigStruct::GetActiveConfig(GetWorld());
+    bConfigLoaded = true;
+
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Config loaded"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: --- Purity Settings ---"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Pure:   %s"), ConfigData.bMarkPure ? TEXT("YES") : TEXT("NO"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Normal: %s"), ConfigData.bMarkNormal ? TEXT("YES") : TEXT("NO"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Impure: %s"), ConfigData.bMarkImpure ? TEXT("YES") : TEXT("NO"));
 }
 
 void URNM_WorldSubsystem::Deinitialize()

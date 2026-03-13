@@ -4,7 +4,7 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
-
+#include "ResourceNodeMarker_ConfigStruct.h"
 #include "RNM_ResourceNodeInfo.h"
 #include "RNM_ResourceVisuals.h"
 
@@ -24,6 +24,7 @@ public:
 private:
     void CheckPlayerProximity();
     void ScanAllNodes();
+    void InitializeConfig();
 
 private:
     TArray<FResourceNodeInfo> ResourceNodes;
@@ -34,4 +35,7 @@ private:
 
     UPROPERTY()
     URNM_ResourceVisuals* ResourceVisuals;
+
+    FResourceNodeMarker_ConfigStruct ConfigData;
+    bool bConfigLoaded = false;
 };

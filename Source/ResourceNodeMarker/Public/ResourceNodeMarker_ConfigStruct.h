@@ -10,6 +10,16 @@ struct FResourceNodeMarker_ConfigStruct {
     GENERATED_BODY()
 public:
 
+    // Purity
+    UPROPERTY(BlueprintReadWrite)
+    bool bMarkPure = true;
+
+    UPROPERTY(BlueprintReadWrite)
+    bool bMarkNormal = true;
+
+    UPROPERTY(BlueprintReadWrite)
+    bool bMarkImpure = true;
+
     /* Retrieves active configuration value and returns object of this struct containing it */
     static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext) {
         FResourceNodeMarker_ConfigStruct ConfigStruct{};
