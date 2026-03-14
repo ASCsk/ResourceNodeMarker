@@ -1,12 +1,31 @@
 #include "RNM_MapMarkerService.h"
-#include "ResourceNodeMarker.h" // For logging category
+#include "ResourceNodeMarker.h"
+#include "FGMapManager.h"
+
+static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
 
 bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& NodeInfo, URNM_ResourceVisuals* ResourceVisuals)
 {
-    if (!World || !ResourceVisuals) return false;
+    if (!World || !ResourceVisuals) 
+        return false;
 
     AFGMapManager* MapManager = AFGMapManager::Get(World);
-    if (!MapManager) return false;
+    if (!MapManager) 
+        return false;
+
+    TArray<FMapMarker> ExistingMarkers;
+    MapManager->GetMapMarkers(ExistingMarkers);
+
+    for (const FMapMarker& Existing : ExistingMarkers)
+    {
+        if (FVector::DistSquared(Existing.Location, NodeInfo.Location) <= MARKER_LOCATION_TOLERANCE_SQ)
+        {
+            UE_LOG(LogResourceNodeMarker, Warning,
+                TEXT("RNM_MapMarkerService: Marker already exists at %s, skipping"),
+                *NodeInfo.ResourceName.ToString());
+            return false;
+        }
+    }
 
     FResourceVisual Visual = ResourceVisuals->GetResourceVisual(NodeInfo.ResourceName);
 

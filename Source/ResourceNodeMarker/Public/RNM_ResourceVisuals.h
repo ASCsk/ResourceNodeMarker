@@ -52,4 +52,16 @@ public:
     // Helper to get a visual by resource name
     UFUNCTION(BlueprintPure, Category = "Resources")
     FResourceVisual GetResourceVisual(const FName& ResourceName) const;
+
+    /**
+     * Generates Pure/Normal/Impure shades from a single base color.
+     * Pure   ? more saturated, darker (rich/vivid)
+     * Normal ? base color
+     * Impure ? less saturated, brighter (washed out)
+     */
+    static void GeneratePurityShades(
+        const FLinearColor& BaseColor,
+        FLinearColor& OutPure,
+        FLinearColor& OutNormal,
+        FLinearColor& OutImpure);
 };

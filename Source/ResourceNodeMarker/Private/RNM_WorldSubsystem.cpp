@@ -2,7 +2,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "TimerManager.h"
-#include "ResourceNodeMarker.h" // logging category
+#include "ResourceNodeMarker.h"
 #include "RNM_NodeScanner.h"
 #include "RNM_MapMarkerService.h"
 #include "ResourceNodeMarker_ConfigStruct.h"
@@ -98,11 +98,12 @@ void URNM_WorldSubsystem::InitializeConfig()
     ConfigData = FResourceNodeMarker_ConfigStruct::GetActiveConfig(GetWorld());
     bConfigLoaded = true;
 
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Config loaded"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: --- Purity Settings ---"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Pure:   %s"), ConfigData.bMarkPure ? TEXT("YES") : TEXT("NO"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Normal: %s"), ConfigData.bMarkNormal ? TEXT("YES") : TEXT("NO"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Impure: %s"), ConfigData.bMarkImpure ? TEXT("YES") : TEXT("NO"));
+    PlayerProximityThresholdSq = (ConfigData.ProximityRadius * 100.0f) * (ConfigData.ProximityRadius * 100.0f);
+
+    UE_LOG(LogResourceNodeMarker, Warning,
+        TEXT("RNM: Proximity Radius: %.0fm (%.0fcm)"),
+        ConfigData.ProximityRadius,
+        ConfigData.ProximityRadius * 100.0f);
 }
 
 void URNM_WorldSubsystem::Deinitialize()

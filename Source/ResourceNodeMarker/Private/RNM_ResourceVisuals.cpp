@@ -1,8 +1,32 @@
 #include "RNM_ResourceVisuals.h"
-
 #include "FGResourceDescriptor.h"
 #include "FGItemDescriptor.h"
 
+void URNM_ResourceVisuals::GeneratePurityShades(
+    const FLinearColor& BaseColor,
+    FLinearColor& OutPure,
+    FLinearColor& OutNormal,
+    FLinearColor& OutImpure)
+{
+    FLinearColor HSV = BaseColor.LinearRGBToHSV();
+    const float H = HSV.R;
+    const float S = HSV.G;
+    const float V = HSV.B;
+
+    OutNormal = BaseColor;
+
+    // Pure: more saturated, slightly darker
+    OutPure = FLinearColor(H,
+        FMath::Clamp(S * 1.4f, 0.0f, 1.0f),
+        FMath::Clamp(V * 0.75f, 0.0f, 1.0f),
+        1.0f).HSVToLinearRGB();
+
+    // Impure: less saturated, brighter
+    OutImpure = FLinearColor(H,
+        FMath::Clamp(S * 0.7f, 0.0f, 1.0f),
+        FMath::Clamp(V * 1.5f, 0.0f, 1.0f),
+        1.0f).HSVToLinearRGB();
+}
 
 URNM_ResourceVisuals::URNM_ResourceVisuals()
 {
@@ -13,50 +37,48 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
             return FLinearColor::FromSRGBColor(FColor::FromHex(Hex));
         };
 
-    auto AddSolid = [&](const FName& Name, const FString& Impure, const FString& Normal, const FString& Pure)
+    auto AddSolid = [&](const FName& Name, const FString& BaseHex)
         {
             FResourceVisual Visual;
             Visual.IconID = Icons.Rock;
-            Visual.ImpureColor = MakeColor(Impure);
-            Visual.NormalColor = MakeColor(Normal);
-            Visual.PureColor = MakeColor(Pure);
+            GeneratePurityShades(
+                MakeColor(BaseHex),
+                Visual.PureColor,
+                Visual.NormalColor,
+                Visual.ImpureColor);
 
             ResourceVisualMap.Add(Name, Visual);
         };
 
-    auto AddLiquid = [&](const FName& Name, const FString& Impure, const FString& Normal, const FString& Pure)
+    auto AddLiquid = [&](const FName& Name, const FString& BaseHex)
         {
             FResourceVisual Visual;
             Visual.IconID = Icons.Fluids;
-            Visual.ImpureColor = MakeColor(Impure);
-            Visual.NormalColor = MakeColor(Normal);
-            Visual.PureColor = MakeColor(Pure);
+            GeneratePurityShades(
+                MakeColor(BaseHex),
+                Visual.PureColor,
+                Visual.NormalColor,
+                Visual.ImpureColor);
 
             ResourceVisualMap.Add(Name, Visual);
         };
 
-    /*
-    ROCK RESOURCES
-    */
+    // ROCK RESOURCES — base color is the Normal shade from before
+    AddSolid(TEXT("Copper Ore"), TEXT("CF4100"));
+    AddSolid(TEXT("Iron Ore"), TEXT("93959E"));
+    AddSolid(TEXT("Limestone"), TEXT("D1B97B"));
+    AddSolid(TEXT("Caterium Ore"), TEXT("FFCB00"));
+    AddSolid(TEXT("Coal"), TEXT("403B3B"));
+    AddSolid(TEXT("Sulfur"), TEXT("E6E615"));
+    AddSolid(TEXT("Bauxite"), TEXT("FFB65E"));
+    AddSolid(TEXT("Raw Quartz"), TEXT("FED4FF"));
+    AddSolid(TEXT("Uranium"), TEXT("85FF2E"));
+    AddSolid(TEXT("SAM Ore"), TEXT("A332C9"));
 
-    AddSolid(TEXT("Copper Ore"), "B34E00", "D16619", "F28233"); 
-    AddSolid(TEXT("Iron Ore"), "5E626B", "93959E", "C4C4C4"); 
-    AddSolid(TEXT("Limestone"), "A68F53", "D1B97B", "FFEAB5");
-    AddSolid(TEXT("Caterium Ore"), "EBBC09", "FFD324", "FFDB4D");
-    AddSolid(TEXT("Coal"), "1F1B1B", "403B3B", "5E5E5E");
-    AddSolid(TEXT("Sulfur"), "C9C900", "E6E615", "FFFF69");
-    AddSolid(TEXT("Bauxite"), "FFA636", "FFB65E", "FFC785");
-    AddSolid(TEXT("Raw Quartz"), "FEB5FF", "FED4FF", "FFE5FF");
-    AddSolid(TEXT("Uranium"), "5BD900", "85FF2E", "B2FF78");
-    AddSolid(TEXT("SAM Ore"), "4F0063", "A332C9", "C258E8");
-
-    /*
-    FLUID RESOURCES
-    */
-
-    AddLiquid(TEXT("Water"), "00CCB8", "17E3CE", "4FFFEC");
-    AddLiquid(TEXT("Crude Oil"), "101010", "1F1F1F", "474747");
-    AddLiquid(TEXT("Nitrogen Gas"), "828282", "A6A6A6", "D4D2D2");
+    // FLUID RESOURCES
+    AddLiquid(TEXT("Water"), TEXT("17E3CE"));
+    AddLiquid(TEXT("Crude Oil"), TEXT("1F1F1F"));
+    AddLiquid(TEXT("Nitrogen Gas"), TEXT("ADADAD"));
 }
 
 FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceName) const

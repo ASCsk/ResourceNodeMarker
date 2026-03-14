@@ -20,6 +20,9 @@ public:
     UPROPERTY(BlueprintReadWrite)
     bool bMarkImpure = true;
 
+    UPROPERTY(BlueprintReadWrite)
+    float ProximityRadius = 160.0f; //meters, converted to cm in code
+
     /* Retrieves active configuration value and returns object of this struct containing it */
     static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext) {
         FResourceNodeMarker_ConfigStruct ConfigStruct{};
