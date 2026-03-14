@@ -23,6 +23,9 @@ public:
     UPROPERTY(BlueprintReadWrite)
     float ProximityRadius = 160.0f; //meters, converted to cm in code
 
+    UPROPERTY(BlueprintReadWrite)
+    int32 CompassViewDistance = 2; // 2 = Mid
+
     /* Retrieves active configuration value and returns object of this struct containing it */
     static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext) {
         FResourceNodeMarker_ConfigStruct ConfigStruct{};

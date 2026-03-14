@@ -4,7 +4,7 @@
 
 static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
 
-bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& NodeInfo, URNM_ResourceVisuals* ResourceVisuals)
+bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& NodeInfo, URNM_ResourceVisuals* ResourceVisuals, const FResourceNodeMarker_ConfigStruct& Config)
 {
     if (!World || !ResourceVisuals) 
         return false;
@@ -36,9 +36,9 @@ bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& 
     Marker.MapMarkerType = ERepresentationType::RT_MapMarker;
     Marker.IconID = Visual.IconID;
     Marker.Color = FLinearColor::White;
-    Marker.CategoryName = TEXT("");
+    Marker.CategoryName = TEXT("Resources");
     Marker.Scale = 1.0f;
-    Marker.CompassViewDistance = ECompassViewDistance::CVD_Always;
+    Marker.CompassViewDistance = ParseCompassViewDistance(Config.CompassViewDistance);
     Marker.CreatedByPlayerID = MapManager->GetLocalPlayerID();
 
     switch (NodeInfo.Purity)
@@ -72,5 +72,22 @@ FString RNM_MapMarkerService::GetPurityString(EResourcePurity Purity)
     case RP_Normal: return TEXT("Normal");
     case RP_Pure:   return TEXT("Pure");
     default:        return TEXT("Unknown");
+    }
+}
+
+ECompassViewDistance RNM_MapMarkerService::ParseCompassViewDistance(int32 Value)
+{
+    switch (Value)
+    {
+    case 0:  return ECompassViewDistance::CVD_Off;
+    case 1:  return ECompassViewDistance::CVD_Near;
+    case 2:  return ECompassViewDistance::CVD_Mid;
+    case 3:  return ECompassViewDistance::CVD_Far;
+    case 4:  return ECompassViewDistance::CVD_Always;
+    default:
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM_MapMarkerService: Invalid CompassViewDistance value '%d', defaulting to Mid"),
+            Value);
+        return ECompassViewDistance::CVD_Mid;
     }
 }

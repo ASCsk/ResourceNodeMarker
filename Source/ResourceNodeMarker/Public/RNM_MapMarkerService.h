@@ -6,6 +6,7 @@
 #include "FGMapMarker.h"
 #include "RNM_ResourceNodeInfo.h"
 #include "RNM_ResourceVisuals.h"
+#include "ResourceNodeMarker_ConfigStruct.h"
 
 /**
  * Helper class to create map markers for resource nodes
@@ -23,7 +24,8 @@ public:
      * @param ResourceVisuals - Visual lookup helper.
      * @return true if marker creation succeeded.
      */
-    static bool CreateMarker(UWorld* World, const FResourceNodeInfo& NodeInfo, URNM_ResourceVisuals* ResourceVisuals);
+    static bool CreateMarker(UWorld* World, const FResourceNodeInfo& NodeInfo, URNM_ResourceVisuals* ResourceVisuals, const FResourceNodeMarker_ConfigStruct& Config);
+    static ECompassViewDistance ParseCompassViewDistance(int32 Value);
 
 private:
     // Helper to convert purity enum to string

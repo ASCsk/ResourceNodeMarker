@@ -83,7 +83,7 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
         {
             ScannedNodes.Add(NodeInfo.NodeActor);
 
-            bool bCreated = RNM_MapMarkerService::CreateMarker(World, NodeInfo, ResourceVisuals);
+            bool bCreated = RNM_MapMarkerService::CreateMarker(World, NodeInfo, ResourceVisuals, ConfigData);
             if (bCreated)
             {
                 UE_LOG(LogResourceNodeMarker, Warning,
@@ -100,8 +100,21 @@ void URNM_WorldSubsystem::InitializeConfig()
 
     PlayerProximityThresholdSq = (ConfigData.ProximityRadius * 100.0f) * (ConfigData.ProximityRadius * 100.0f);
 
-    UE_LOG(LogResourceNodeMarker, Warning,
-        TEXT("RNM: Proximity Radius: %.0fm (%.0fcm)"),
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Config loaded"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: --- Purity Settings ---"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Pure:   %s"), ConfigData.bMarkPure ? TEXT("YES") : TEXT("NO"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Normal: %s"), ConfigData.bMarkNormal ? TEXT("YES") : TEXT("NO"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Impure: %s"), ConfigData.bMarkImpure ? TEXT("YES") : TEXT("NO"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: --- Compass Settings ---"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Compass View Distance: %d (%s)"),
+        ConfigData.CompassViewDistance,
+        ConfigData.CompassViewDistance == 0 ? TEXT("Off") :
+        ConfigData.CompassViewDistance == 1 ? TEXT("Near") :
+        ConfigData.CompassViewDistance == 2 ? TEXT("Mid") :
+        ConfigData.CompassViewDistance == 3 ? TEXT("Far") :
+        ConfigData.CompassViewDistance == 4 ? TEXT("Always") : TEXT("Invalid"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: --- Proximity Settings ---"));
+    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Proximity Radius: %.0fm (%.0fcm)"),
         ConfigData.ProximityRadius,
         ConfigData.ProximityRadius * 100.0f);
 }
