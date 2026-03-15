@@ -6,7 +6,7 @@ DEFINE_LOG_CATEGORY(LogResourceNodeMarker);
 
 void FResourceNodeMarkerModule::StartupModule()
 {
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("ResourceNodeMarker module loaded"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("ResourceNodeMarker module loaded"));
 }
 
 void FResourceNodeMarkerModule::ShutdownModule()

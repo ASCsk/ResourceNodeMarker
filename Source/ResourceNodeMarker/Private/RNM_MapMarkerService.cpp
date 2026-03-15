@@ -3,6 +3,8 @@
 #include "FGMapManager.h"
 
 static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
+static const TCHAR* CATEGORY_ORE = TEXT("RNM::Ore");
+static const TCHAR* CATEGORY_FLUID = TEXT("RNM::Fluid");
 
 bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& NodeInfo, URNM_ResourceVisuals* ResourceVisuals, const FResourceNodeMarker_ConfigStruct& Config)
 {
@@ -28,6 +30,7 @@ bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& 
     }
 
     FResourceVisual Visual = ResourceVisuals->GetResourceVisual(NodeInfo.ResourceName);
+    FIconPreset Icons;
 
     FMapMarker Marker;
     Marker.MarkerGUID = FGuid::NewGuid();
@@ -36,7 +39,7 @@ bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& 
     Marker.MapMarkerType = ERepresentationType::RT_MapMarker;
     Marker.IconID = Visual.IconID;
     Marker.Color = FLinearColor::White;
-    Marker.CategoryName = TEXT("Resources");
+    Marker.CategoryName = (Visual.IconID == Icons.Fluids) ? CATEGORY_FLUID : CATEGORY_ORE;
     Marker.Scale = 1.0f;
     Marker.CompassViewDistance = ParseCompassViewDistance(Config.CompassViewDistance);
     Marker.CreatedByPlayerID = MapManager->GetLocalPlayerID();
@@ -52,16 +55,18 @@ bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& 
     FMapMarker CreatedMarker;
     bool bSuccess = MapManager->AddNewMapMarker(Marker, CreatedMarker);
 
-    if (bSuccess)
+    if (!bSuccess)
     {
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_MapMarkerService: Marker created for %s"), *NodeInfo.ResourceName.ToString());
-    }
-    else
-    {
-        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_MapMarkerService: Failed to create marker for %s"), *NodeInfo.ResourceName.ToString());
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM_MapMarkerService: Failed to create marker for %s"),
+            *NodeInfo.ResourceName.ToString());
+        return false;
     }
 
-    return bSuccess;
+    UE_LOG(LogResourceNodeMarker, Log,
+        TEXT("RNM_MapMarkerService: Marker created for %s"),
+        *NodeInfo.ResourceName.ToString());
+    return true;
 }
 
 FString RNM_MapMarkerService::GetPurityString(EResourcePurity Purity)

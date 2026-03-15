@@ -79,6 +79,7 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
     AddLiquid(TEXT("Water"), TEXT("17E3CE"));
     AddLiquid(TEXT("Crude Oil"), TEXT("1F1F1F"));
     AddLiquid(TEXT("Nitrogen Gas"), TEXT("ADADAD"));
+    AddLiquid(TEXT("Geyser"), TEXT("00FAB3"));
 }
 
 FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceName) const
@@ -87,6 +88,10 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceNam
     {
         return *Found;
     }
+
+    UE_LOG(LogResourceNodeMarker, Warning,
+        TEXT("RNM_ResourceVisuals: No visual found for '%s', using fallback"),
+        *ResourceName.ToString());
 
     return FResourceVisual(); // fallback
 }

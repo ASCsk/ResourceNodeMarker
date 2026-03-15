@@ -24,5 +24,5 @@ void RNM_NodeScanner::ScanNodes(UWorld* World, TArray<FResourceNodeInfo>& OutNod
         OutNodes.Add(Info);
     }
 
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_NodeScanner: Found %d extractable nodes"), OutNodes.Num());
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM_NodeScanner: Found %d extractable nodes"), OutNodes.Num());
 }

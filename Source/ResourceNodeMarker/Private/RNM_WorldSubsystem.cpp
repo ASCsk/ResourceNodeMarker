@@ -18,7 +18,7 @@ void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
     /*if (World->GetName() != "Persistent_Level") return;*/
     if (World->WorldType != EWorldType::Game)
 
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Subsystem running in gameplay world"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Subsystem running in gameplay world"));
 
     World->OnWorldBeginPlay.AddUObject(this, &URNM_WorldSubsystem::InitializeConfig);
     // Scan all nodes once the world begins play
@@ -40,7 +40,7 @@ void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 void URNM_WorldSubsystem::ScanAllNodes()
 {
     RNM_NodeScanner::ScanNodes(GetWorld(), ResourceNodes);
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Cached %d resource nodes"), ResourceNodes.Num());
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Cached %d resource nodes"), ResourceNodes.Num());
 }
 
 void URNM_WorldSubsystem::CheckPlayerProximity()
@@ -70,7 +70,7 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
 
             if (!bPurityEnabled)
             {
-                UE_LOG(LogResourceNodeMarker, Warning,
+                UE_LOG(LogResourceNodeMarker, Log,
                     TEXT("RNM: Skipping %s - purity %d filtered by config"),
                     *NodeInfo.ResourceName.ToString(), (int32)NodeInfo.Purity);
                 continue;
@@ -86,7 +86,7 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
             bool bCreated = RNM_MapMarkerService::CreateMarker(World, NodeInfo, ResourceVisuals, ConfigData);
             if (bCreated)
             {
-                UE_LOG(LogResourceNodeMarker, Warning,
+                UE_LOG(LogResourceNodeMarker, Log,
                     TEXT("RNM: Player near resource node, marker created for %s"), *NodeInfo.ResourceName.ToString());
             }
         }
@@ -100,21 +100,21 @@ void URNM_WorldSubsystem::InitializeConfig()
 
     PlayerProximityThresholdSq = (ConfigData.ProximityRadius * 100.0f) * (ConfigData.ProximityRadius * 100.0f);
 
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Config loaded"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: --- Purity Settings ---"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Pure:   %s"), ConfigData.bMarkPure ? TEXT("YES") : TEXT("NO"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Normal: %s"), ConfigData.bMarkNormal ? TEXT("YES") : TEXT("NO"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Mark Impure: %s"), ConfigData.bMarkImpure ? TEXT("YES") : TEXT("NO"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: --- Compass Settings ---"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Compass View Distance: %d (%s)"),
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Config loaded"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Purity Settings ---"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Mark Pure:   %s"), ConfigData.bMarkPure ? TEXT("YES") : TEXT("NO"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Mark Normal: %s"), ConfigData.bMarkNormal ? TEXT("YES") : TEXT("NO"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Mark Impure: %s"), ConfigData.bMarkImpure ? TEXT("YES") : TEXT("NO"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Compass Settings ---"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Compass View Distance: %d (%s)"),
         ConfigData.CompassViewDistance,
         ConfigData.CompassViewDistance == 0 ? TEXT("Off") :
         ConfigData.CompassViewDistance == 1 ? TEXT("Near") :
         ConfigData.CompassViewDistance == 2 ? TEXT("Mid") :
         ConfigData.CompassViewDistance == 3 ? TEXT("Far") :
         ConfigData.CompassViewDistance == 4 ? TEXT("Always") : TEXT("Invalid"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: --- Proximity Settings ---"));
-    UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Proximity Radius: %.0fm (%.0fcm)"),
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Proximity Settings ---"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Proximity Radius: %.0fm (%.0fcm)"),
         ConfigData.ProximityRadius,
         ConfigData.ProximityRadius * 100.0f);
 }
