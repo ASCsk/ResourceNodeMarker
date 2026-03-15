@@ -73,7 +73,7 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
     AddSolid(TEXT("Bauxite"), TEXT("FFB65E"));
     AddSolid(TEXT("Raw Quartz"), TEXT("FED4FF"));
     AddSolid(TEXT("Uranium"), TEXT("85FF2E"));
-    AddSolid(TEXT("SAM Ore"), TEXT("A332C9"));
+    AddSolid(TEXT("SAM"), TEXT("A332C9"));
 
     // FLUID RESOURCES
     AddLiquid(TEXT("Water"), TEXT("17E3CE"));
