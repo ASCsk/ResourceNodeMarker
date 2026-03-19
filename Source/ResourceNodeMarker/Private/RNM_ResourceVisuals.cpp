@@ -30,7 +30,7 @@ void URNM_ResourceVisuals::GeneratePurityShades(
 
 URNM_ResourceVisuals::URNM_ResourceVisuals()
 {
-    FIconPreset Icons;
+    FStampPreset Stamp;
 
     auto MakeColor = [](const FString& Hex)
         {
@@ -40,7 +40,7 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
     auto AddSolid = [&](const FName& Name, const FString& BaseHex)
         {
             FResourceVisual Visual;
-            Visual.IconID = Icons.Rock;
+            Visual.IconID = Stamp.Rock;
             GeneratePurityShades(
                 MakeColor(BaseHex),
                 Visual.PureColor,
@@ -53,7 +53,7 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
     auto AddLiquid = [&](const FName& Name, const FString& BaseHex)
         {
             FResourceVisual Visual;
-            Visual.IconID = Icons.Fluids;
+            Visual.IconID = Stamp.Fluids;
             GeneratePurityShades(
                 MakeColor(BaseHex),
                 Visual.PureColor,
@@ -80,18 +80,45 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
     AddLiquid(TEXT("Crude Oil"), TEXT("1F1F1F"));
     AddLiquid(TEXT("Nitrogen Gas"), TEXT("ADADAD"));
     AddLiquid(TEXT("Geyser"), TEXT("00FAB3"));
+
+    FIconsPreset Icons;
+    IconMap =
+    {
+        { TEXT("Copper Ore"),   Icons.Copper    },
+        { TEXT("Iron Ore"),     Icons.Iron      },
+        { TEXT("Limestone"),    Icons.Limestone },
+        { TEXT("Caterium Ore"), Icons.Caterium  },
+        { TEXT("Coal"),         Icons.Coal      },
+        { TEXT("Sulfur"),       Icons.Sulfur    },
+        { TEXT("Bauxite"),      Icons.Bauxite   },
+        { TEXT("Raw Quartz"),   Icons.Quartz    },
+        { TEXT("Uranium"),      Icons.Uranium   },
+        { TEXT("SAM"),          Icons.Sam       },
+    };
+
 }
 
-FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceName) const
+FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceName, bool bUseIcons) const
 {
     if (const FResourceVisual* Found = ResourceVisualMap.Find(ResourceName))
     {
-        return *Found;
+        FResourceVisual Visual = *Found;
+
+        if (bUseIcons)
+        {
+            if (const int32* IconID = IconMap.Find(ResourceName))
+                Visual.IconID = *IconID;
+            else
+                UE_LOG(LogResourceNodeMarker, Warning,
+                    TEXT("RNM_ResourceVisuals: No actual icon found for '%s', using preset"),
+                    *ResourceName.ToString());
+        }
+        return Visual;
     }
 
     UE_LOG(LogResourceNodeMarker, Warning,
         TEXT("RNM_ResourceVisuals: No visual found for '%s', using fallback"),
         *ResourceName.ToString());
 
-    return FResourceVisual(); // fallback
+    return FResourceVisual();
 }

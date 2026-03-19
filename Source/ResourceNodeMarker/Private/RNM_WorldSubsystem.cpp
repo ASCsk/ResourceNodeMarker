@@ -12,17 +12,18 @@ void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
     Super::Initialize(Collection);
 
     UWorld* World = GetWorld();
-    if (!World) return;
 
-    // Only run in actual gameplay level
-    /*if (World->GetName() != "Persistent_Level") return;*/
+    if (!World) 
+        return;
+
     if (World->WorldType != EWorldType::Game)
+        return;
 
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Subsystem running in gameplay world"));
 
     World->OnWorldBeginPlay.AddUObject(this, &URNM_WorldSubsystem::InitializeConfig);
-    // Scan all nodes once the world begins play
     World->OnWorldBeginPlay.AddUObject(this, &URNM_WorldSubsystem::ScanAllNodes);
+    World->OnWorldBeginPlay.AddUObject(this, &URNM_WorldSubsystem::BindBuildableDelegate);
 
     // Start proximity check timer
     World->GetTimerManager().SetTimer(
@@ -117,6 +118,108 @@ void URNM_WorldSubsystem::InitializeConfig()
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Proximity Radius: %.0fm (%.0fcm)"),
         ConfigData.ProximityRadius,
         ConfigData.ProximityRadius * 100.0f);
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Extractor Settings ---"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Extractor Marker Behavior: %d (%s)"),
+        ConfigData.ExtractorMarkerBehavior,
+        ConfigData.ExtractorMarkerBehavior == 0 ? TEXT("Keep") :
+        ConfigData.ExtractorMarkerBehavior == 1 ? TEXT("Remove") :
+        ConfigData.ExtractorMarkerBehavior == 2 ? TEXT("Highlight") : TEXT("Invalid"));
+}
+
+void URNM_WorldSubsystem::BindBuildableDelegate()
+{
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    AFGBuildableSubsystem* BuildableSubsystem = AFGBuildableSubsystem::Get(World);
+    if (!BuildableSubsystem)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: BuildableSubsystem not found, miner placement detection disabled"));
+        return;
+    }
+
+    BuildableSubsystem->mBuildableAddedDelegate.AddDynamic(
+        this,
+        &URNM_WorldSubsystem::OnBuildableConstructed
+    );
+
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Bound to BuildableConstructedGlobalDelegate"));
+}
+
+void URNM_WorldSubsystem::OnBuildableConstructed(AFGBuildable* Buildable)
+{
+    if (!Buildable)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: No Buildable"));
+        return;
+    }
+
+    // Only care about resource extractors
+    AFGBuildableResourceExtractor* Extractor = Cast<AFGBuildableResourceExtractor>(Buildable);
+    if (!Extractor)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Extractor not found"));
+        return;
+    }
+
+    // 0 = Keep, nothing to do
+    if (ConfigData.ExtractorMarkerBehavior == 0)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Config 0 = Keep, nothing to do"));
+        return;
+    }
+
+    TScriptInterface<IFGExtractableResourceInterface> ExtractableResource = Extractor->GetExtractableResource();
+    if (!ExtractableResource)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: ExtractableResource not found"));
+        return;
+    }
+    
+
+    UObject* ResourceObject = ExtractableResource.GetObject();
+    if (!ResourceObject)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: ResourceObject not found"));
+        return;
+    }
+
+    AActor* ResourceActor = Cast<AActor>(ResourceObject);
+    if (!ResourceActor)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: ResourceActor not found"));
+        return;
+    }
+
+    const FVector NodeLocation = ResourceActor->GetActorLocation();
+    UE_LOG(LogResourceNodeMarker, Log,
+        TEXT("RNM: Extractor placed at resource location X=%.0f Y=%.0f Z=%.0f"),
+        NodeLocation.X, NodeLocation.Y, NodeLocation.Z);
+
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    AFGMapManager* MapManager = AFGMapManager::Get(World);
+    if (!MapManager) return;
+
+    TArray<FMapMarker> AllMarkers;
+    MapManager->GetMapMarkers(AllMarkers);
+
+    for (FMapMarker& Marker : AllMarkers)
+    {
+        if (FVector::DistSquared(Marker.Location, NodeLocation) <= RNM_MapMarkerService::MARKER_LOCATION_TOLERANCE_SQ)
+        {
+            // 1 = Remove
+            if (ConfigData.ExtractorMarkerBehavior == 1)
+            {
+                MapManager->RemoveMapMarker(Marker);
+                UE_LOG(LogResourceNodeMarker, Log,
+                    TEXT("RNM: Removed marker at extractor placement location %s"),
+                    *NodeLocation.ToString());
+            }
+            return;
+        }
+    }
 }
 
 void URNM_WorldSubsystem::Deinitialize()
@@ -125,6 +228,15 @@ void URNM_WorldSubsystem::Deinitialize()
     if (World)
     {
         World->GetTimerManager().ClearTimer(ProximityTimerHandle);
+
+        AFGBuildableSubsystem* BuildableSubsystem = AFGBuildableSubsystem::Get(World);
+        if (BuildableSubsystem)
+        {
+            BuildableSubsystem->mBuildableAddedDelegate.RemoveDynamic(
+                this,
+                &URNM_WorldSubsystem::OnBuildableConstructed
+            );
+        }
     }
 
     Super::Deinitialize();

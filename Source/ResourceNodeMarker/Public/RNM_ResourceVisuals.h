@@ -26,7 +26,7 @@ struct FResourceVisual
 };
 
 // Icon presets
-struct FIconPreset
+struct FStampPreset
 {
     int Rock = 660;
     int Fluids = 657;
@@ -38,10 +38,29 @@ struct FIconPreset
     int QuestionMark = 656;
 };
 
+struct FIconsPreset
+{
+    int Copper = 198;
+    int Iron = 193;
+    int Limestone = 204;
+    int Caterium = 200;
+    int Coal = 205;
+    int Sulfur = 203;
+    int Bauxite = 199;
+    int Quartz = 206;
+    int Uranium = 201;
+    int Sam = 280;
+};
+
 UCLASS(Blueprintable)
 class RESOURCENODEMARKER_API URNM_ResourceVisuals : public UObject
 {
+
     GENERATED_BODY()
+
+private:
+    TMap<FName, int32> IconMap;
+
 public:
     URNM_ResourceVisuals();
 
@@ -51,7 +70,7 @@ public:
 
     // Helper to get a visual by resource name
     UFUNCTION(BlueprintPure, Category = "Resources")
-    FResourceVisual GetResourceVisual(const FName& ResourceName) const;
+    FResourceVisual GetResourceVisual(const FName& ResourceName, bool bUseIcons) const;
 
     /**
      * Generates Pure/Normal/Impure shades from a single base color.

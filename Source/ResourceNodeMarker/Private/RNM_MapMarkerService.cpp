@@ -2,7 +2,6 @@
 #include "ResourceNodeMarker.h"
 #include "FGMapManager.h"
 
-static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
 static const TCHAR* CATEGORY_ORE = TEXT("RNM::Ore");
 static const TCHAR* CATEGORY_FLUID = TEXT("RNM::Fluid");
 
@@ -29,8 +28,8 @@ bool RNM_MapMarkerService::CreateMarker(UWorld* World, const FResourceNodeInfo& 
         }
     }
 
-    FResourceVisual Visual = ResourceVisuals->GetResourceVisual(NodeInfo.ResourceName);
-    FIconPreset Icons;
+    FResourceVisual Visual = ResourceVisuals->GetResourceVisual(NodeInfo.ResourceName, Config.bUseIcons);
+    FStampPreset Icons;
 
     FMapMarker Marker;
     Marker.MarkerGUID = FGuid::NewGuid();

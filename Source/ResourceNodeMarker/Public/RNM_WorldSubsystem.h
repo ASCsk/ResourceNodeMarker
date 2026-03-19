@@ -7,10 +7,12 @@
 #include "ResourceNodeMarker_ConfigStruct.h"
 #include "RNM_ResourceNodeInfo.h"
 #include "RNM_ResourceVisuals.h"
+#include "Buildables/FGBuildableResourceExtractor.h"
+#include "FGBuildableSubsystem.h"
 
 #include "RNM_WorldSubsystem.generated.h"
 
-#define PLAYER_PROXIMITY 16000.0f // cm
+#define PLAYER_PROXIMITY 160.0f // m
 
 UCLASS()
 class RESOURCENODEMARKER_API URNM_WorldSubsystem : public UWorldSubsystem
@@ -25,12 +27,16 @@ private:
     void CheckPlayerProximity();
     void ScanAllNodes();
     void InitializeConfig();
+    void BindBuildableDelegate();
+
+    UFUNCTION()
+    void OnBuildableConstructed(AFGBuildable* Buildable);
 
 private:
     TArray<FResourceNodeInfo> ResourceNodes;
     TSet<TWeakObjectPtr<AFGResourceNode>> ScannedNodes;
     FTimerHandle ProximityTimerHandle;
-    float PlayerProximityThresholdSq = (160.0f * 100.0f) * (160.0f * 100.0f); // 160m default, stored as cm squared
+    float PlayerProximityThresholdSq = (PLAYER_PROXIMITY * 100.0f) * (PLAYER_PROXIMITY * 100.0f); // 160m default, stored as cm squared
 
     UPROPERTY()
     URNM_ResourceVisuals* ResourceVisuals;

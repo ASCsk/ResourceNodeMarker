@@ -30,4 +30,6 @@ public:
 private:
     // Helper to convert purity enum to string
     static FString GetPurityString(EResourcePurity Purity);
+public:
+    static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
 };
