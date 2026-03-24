@@ -59,7 +59,7 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
 
     for (FResourceNodeInfo& NodeInfo : ResourceNodes)
     {
-        if (!NodeInfo.NodeActor || ScannedNodes.Contains(NodeInfo.NodeActor))
+        if (!IsValid(NodeInfo.NodeActor) || ScannedNodes.Contains(NodeInfo.NodeActor))
             continue;
 
         if (bConfigLoaded)

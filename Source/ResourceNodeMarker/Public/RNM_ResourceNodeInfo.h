@@ -9,7 +9,9 @@ struct FResourceNodeInfo
 {
     GENERATED_BODY()
 
+    UPROPERTY()
     AFGResourceNode* NodeActor = nullptr;
+
     FVector Location;
     FName ResourceName;
     EResourcePurity Purity;
