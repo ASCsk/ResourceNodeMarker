@@ -36,7 +36,7 @@ public:
     static TArray<int32> GetNeighborCellIndices(const TMap<FIntVector, TArray<int32>>& Grid, const FIntVector& Cell);
 
     // Cluster radius — max distance between two nodes to be considered neighbors
-    static constexpr float CLUSTER_RADIUS_Z_HEIGHT = 10000.0f; // 100m in cm
-    static constexpr float CLUSTER_RADIUS = 40000.0f; // 400m in cm
+    static constexpr float CLUSTER_RADIUS = 25000.0f; // 250m in cm
     static constexpr float CLUSTER_RADIUS_SQ = CLUSTER_RADIUS * CLUSTER_RADIUS;
+    static constexpr float CLUSTER_RADIUS_Z_HEIGHT = 10000.0f; // 100m in cm
 };

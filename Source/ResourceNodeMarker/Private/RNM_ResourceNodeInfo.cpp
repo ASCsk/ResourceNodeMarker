@@ -48,8 +48,8 @@ float FResourceNodeCluster::GetMarkerScale() const
 {
     const int32 NodeCount = Nodes.Num();
 
-    if (NodeCount <= 1) return 1.0f;
-    if (NodeCount <= 3) return 1.5f;
-    if (NodeCount <= 6) return 2.0f;
-    return 2.5f;
+    if (NodeCount <= 1) return 0.8f;
+    if (NodeCount <= 3) return 1.2f;
+    if (NodeCount <= 6) return 1.6f;
+    return 2.0f;
 }

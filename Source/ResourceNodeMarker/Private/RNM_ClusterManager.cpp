@@ -14,6 +14,8 @@ void URNM_ClusterManager::Initialize(
     SpatialGrid = &InSpatialGrid;
     ResourceVisuals = InResourceVisuals;
     Config = InConfig;
+    ClusterRadiusSq = (InConfig.ClusterRadius * 100.0f) * (InConfig.ClusterRadius * 100.0f);
+    ClusterHeightTolerance = InConfig.ClusterHeightTolerance * 100.0f;
 
     DiscoveredClusters.Reset();
     NodeToClusterMap.Reset();

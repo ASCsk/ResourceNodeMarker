@@ -57,6 +57,8 @@ public:
 private:
     int32 FindOrCreateCluster(int32 NodeIndex);
     void MergeClusters(int32 TargetIndex, int32 SourceIndex);
+    float ClusterRadiusSq = 0.0f;
+    float ClusterHeightTolerance = 0.0f;
 
 private:
     // References to subsystem-owned data
