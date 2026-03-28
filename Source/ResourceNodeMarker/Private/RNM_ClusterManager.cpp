@@ -22,37 +22,6 @@ void URNM_ClusterManager::Initialize(
     DiscoveredNodeIndices.Reset();
 }
 
-void URNM_ClusterManager::MigrateOldMarkers(UWorld* World)
-{
-    if (!World) return;
-
-    AFGMapManager* MapManager = AFGMapManager::Get(World);
-    if (!MapManager) return;
-
-    TArray<FMapMarker> AllMarkers;
-    MapManager->GetMapMarkers(AllMarkers);
-
-    TArray<FMapMarker> MarkersToMigrate;
-    for (const FMapMarker& Marker : AllMarkers)
-    {
-        if (Marker.CategoryName == TEXT("Resources") ||
-            Marker.CategoryName == TEXT("Ore"))
-        {
-            MarkersToMigrate.Add(Marker);
-        }
-    }
-
-    for (FMapMarker& Marker : MarkersToMigrate)
-    {
-        Marker.CategoryName = TEXT("RNM::Ore");
-        MapManager->UpdateMapMarker(Marker);
-    }
-
-    UE_LOG(LogResourceNodeMarker, Log,
-        TEXT("RNM_ClusterManager: Migrated %d old markers to RNM:: category"),
-        MarkersToMigrate.Num());
-}
-
 void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
 {
     if (!World || !ResourceNodes || !SpatialGrid) return;
@@ -283,5 +252,96 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
             ClusterIndices.Num(),
             *NewNode.ResourceName.ToString(),
             DiscoveredClusters[TargetClusterIndex].Nodes.Num());
+    }
+}
+
+void URNM_ClusterManager::MarkNodeDiscovered(int32 NodeIndex)
+{
+    DiscoveredNodeIndices.Add(NodeIndex);
+}
+
+void URNM_ClusterManager::OnExtractorPlaced(UWorld* World, const FVector& NodeLocation)
+{
+    if (!ResourceNodes) return;
+
+    // Find node index by location
+    int32 FoundNodeIndex = -1;
+    for (int32 i = 0; i < ResourceNodes->Num(); i++)
+    {
+        if (FVector::DistSquared((*ResourceNodes)[i].Location, NodeLocation) <= RNM_MapMarkerService::MARKER_LOCATION_TOLERANCE_SQ)
+        {
+            FoundNodeIndex = i;
+            break;
+        }
+    }
+
+    if (FoundNodeIndex == -1)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM_ClusterManager: Could not find node at extractor location %s"),
+            *NodeLocation.ToString());
+        return;
+    }
+
+    // Mark as discovered so proximity check never triggers for it again
+    DiscoveredNodeIndices.Add(FoundNodeIndex);
+
+    // Find which cluster this node belongs to
+    const int32* ClusterIdxPtr = NodeToClusterMap.Find(FoundNodeIndex);
+    if (!ClusterIdxPtr)
+    {
+        // Node was never discovered/clustered, nothing to update
+        UE_LOG(LogResourceNodeMarker, Log,
+            TEXT("RNM_ClusterManager: Extractor placed on undiscovered node, marked as discovered"));
+        return;
+    }
+
+    int32 ClusterIndex = *ClusterIdxPtr;
+    FResourceNodeCluster& Cluster = DiscoveredClusters[ClusterIndex];
+
+    // Delete existing cluster marker
+    if (Cluster.CurrentMarkerGUID.IsValid())
+    {
+        AFGMapManager* MapManager = AFGMapManager::Get(World);
+        if (MapManager)
+        {
+            MapManager->Authority_RemoveMapMarkerByID(Cluster.CurrentMarkerGUID);
+            Cluster.CurrentMarkerGUID.Invalidate();
+
+            UE_LOG(LogResourceNodeMarker, Log,
+                TEXT("RNM_ClusterManager: Removed cluster marker for %s due to extractor placement"),
+                *Cluster.ResourceName.ToString());
+        }
+    }
+
+    // Remove the tapped node from the cluster
+    Cluster.Nodes.RemoveAll([&](const FResourceNodeInfo& Node)
+        {
+            return FVector::DistSquared(Node.Location, NodeLocation) <= RNM_MapMarkerService::MARKER_LOCATION_TOLERANCE_SQ;
+        });
+
+    // If cluster still has nodes recreate marker
+    if (Cluster.Nodes.Num() > 0)
+    {
+        Cluster.RecalculateCenter();
+        Cluster.RecalculateDominantPurity();
+
+        FGuid NewGUID;
+        if (RNM_MapMarkerService::CreateOrUpdateClusterMarker(
+            World, Cluster, ResourceVisuals, Config, NewGUID))
+        {
+            Cluster.CurrentMarkerGUID = NewGUID;
+
+            UE_LOG(LogResourceNodeMarker, Log,
+                TEXT("RNM_ClusterManager: Recreated cluster marker for %s (%d nodes remaining)"),
+                *Cluster.ResourceName.ToString(),
+                Cluster.Nodes.Num());
+        }
+    }
+    else
+    {
+        UE_LOG(LogResourceNodeMarker, Log,
+            TEXT("RNM_ClusterManager: Cluster for %s is now empty, marker deleted"),
+            *Cluster.ResourceName.ToString());
     }
 }

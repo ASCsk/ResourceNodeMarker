@@ -23,12 +23,6 @@ public:
         const FResourceNodeMarker_ConfigStruct& InConfig);
 
     /**
-     * Migrates markers from old categories (Resources, Ore) to RNM:: categories.
-     * Should only run once per installation via migration flag.
-     */
-    void MigrateOldMarkers(UWorld* World);
-
-    /**
      * Reads existing RNM:: markers from the map and rebuilds cluster state from them.
      * Does not create any new markers.
      */
@@ -53,6 +47,15 @@ public:
 
     /** Returns true if the node at the given index has already been discovered. */
     bool IsNodeDiscovered(int32 NodeIndex) const;
+
+    void MarkNodeDiscovered(int32 NodeIndex);
+
+    /**
+     * Called when an extractor is placed on a node.
+     * Marks node as discovered, removes it from its cluster,
+     * deletes the cluster marker and recreates it if nodes remain.
+     */
+     void OnExtractorPlaced(UWorld* World, const FVector& NodeLocation);
 
 private:
     int32 FindOrCreateCluster(int32 NodeIndex);

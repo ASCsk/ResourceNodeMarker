@@ -2,26 +2,9 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "TimerManager.h"
-#include "Misc/FileHelper.h"
-#include "Misc/Paths.h"
 #include "ResourceNodeMarker.h"
 #include "RNM_NodeScanner.h"
 #include "RNM_MapMarkerService.h"
-
-static FString GetMigrationFlagPath()
-{
-    return FPaths::ProjectSavedDir() / TEXT("ResourceNodeMarker/migration_v1.flag");
-}
-
-bool URNM_WorldSubsystem::HasMigrationRun() const
-{
-    return FPaths::FileExists(GetMigrationFlagPath());
-}
-
-void URNM_WorldSubsystem::MarkMigrationComplete()
-{
-    FFileHelper::SaveStringToFile(TEXT("migration_v1"), *GetMigrationFlagPath());
-}
 
 void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -93,30 +76,6 @@ void URNM_WorldSubsystem::ScanAllNodes()
     RNM_NodeScanner::BuildSpatialGrid(ResourceNodes, SpatialGrid);
 
     ClusterManager->Initialize(ResourceNodes, SpatialGrid, ResourceVisuals, ConfigData);
-
-    if (ConfigData.bResetMigration)
-    {
-        UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Migration reset requested, deleting flag"));
-        IFileManager::Get().Delete(*GetMigrationFlagPath());
-
-        // Auto reset config back to false
-        // We do this by marking the config dirty so it saves false back to disk
-        if (UGameInstance* GI = World->GetGameInstance())
-        {
-            if (UConfigManager* ConfigManager = GI->GetSubsystem<UConfigManager>())
-            {
-                ConfigManager->MarkConfigurationDirty(FConfigId{ TEXT("ResourceNodeMarker"), TEXT("") });
-            }
-        }
-    }
-
-    if (!HasMigrationRun())
-    {
-        UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Running first time migration"));
-        ClusterManager->MigrateOldMarkers(World);
-        MarkMigrationComplete();
-    }
-
     ClusterManager->RebuildClustersFromExistingMarkers(World);
     ClusterManager->DeleteAllRNMMarkers(World);
     ClusterManager->CreateAllClusterMarkers(World);
@@ -145,7 +104,7 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
             continue;
 
         const FResourceNodeInfo& NodeInfo = ResourceNodes[i];
-        if (!NodeInfo.NodeActor) continue;
+        if (!IsValid(NodeInfo.NodeActor)) continue;
 
         if (bConfigLoaded)
         {
@@ -207,26 +166,7 @@ void URNM_WorldSubsystem::OnBuildableConstructed(AFGBuildable* Buildable)
     UWorld* World = GetWorld();
     if (!World) return;
 
-    AFGMapManager* MapManager = AFGMapManager::Get(World);
-    if (!MapManager) return;
-
-    TArray<FMapMarker> AllMarkers;
-    MapManager->GetMapMarkers(AllMarkers);
-
-    for (FMapMarker& Marker : AllMarkers)
-    {
-        if (FVector::DistSquared(Marker.Location, NodeLocation) <= RNM_MapMarkerService::MARKER_LOCATION_TOLERANCE_SQ)
-        {
-            if (ConfigData.ExtractorMarkerBehavior == 1)
-            {
-                MapManager->RemoveMapMarker(Marker);
-                UE_LOG(LogResourceNodeMarker, Log,
-                    TEXT("RNM: Removed marker at extractor location %s"),
-                    *NodeLocation.ToString());
-            }
-            return;
-        }
-    }
+    ClusterManager->OnExtractorPlaced(World, NodeLocation);
 }
 
 void URNM_WorldSubsystem::Deinitialize()

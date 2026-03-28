@@ -38,9 +38,6 @@ public:
     UPROPERTY(BlueprintReadWrite)
     float ClusterHeightTolerance = 100.0f; // meters, converted to cm in code
 
-    UPROPERTY(BlueprintReadWrite)
-    bool bResetMigration = false;
-
     /* Retrieves active configuration value and returns object of this struct containing it */
     static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext) {
         FResourceNodeMarker_ConfigStruct ConfigStruct{};

@@ -23,7 +23,7 @@ struct FResourceNodeCluster
     FVector AverageLocation = FVector::ZeroVector;
     FName ResourceName;
     EResourcePurity DominantPurity = RP_Normal;
-    FGuid CurrentMarkerGUID;        // tracks the active marker so it can be deleted on update
+    FGuid CurrentMarkerGUID; // track the active marker so it can be deleted on update
 
     void RecalculateCenter();
     void RecalculateDominantPurity();
