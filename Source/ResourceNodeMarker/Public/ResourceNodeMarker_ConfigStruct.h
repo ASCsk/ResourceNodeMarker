@@ -30,7 +30,13 @@ public:
     int32 ExtractorMarkerBehavior = 0; // 0 = Keep, 1 = Remove
 
     UPROPERTY(BlueprintReadWrite)
-    bool bUseIcons = true;
+    bool bUseIcons = false;
+
+    UPROPERTY(BlueprintReadWrite)
+    float ClusterRadius = 250.0f; // meters, converted to cm in code
+
+    UPROPERTY(BlueprintReadWrite)
+    float ClusterHeightTolerance = 100.0f; // meters, converted to cm in code
 
     /* Retrieves active configuration value and returns object of this struct containing it */
     static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext) {
