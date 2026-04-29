@@ -2,7 +2,9 @@
 #include "RNM_NodeScanner.h"
 #include "RNM_MapMarkerService.h"
 #include "ResourceNodeMarker.h"
+#include "FGItemDescriptor.h"
 #include "FGMapManager.h"
+#include "FGResourceDescriptor.h"
 
 void URNM_ClusterManager::Initialize(
     const TArray<FResourceNodeInfo>& InResourceNodes,
@@ -34,26 +36,66 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
 
     for (const FMapMarker& Marker : ExistingMarkers)
     {
-        if (Marker.CategoryName != TEXT("RNM::Ore") &&
-            Marker.CategoryName != TEXT("RNM::Fluid"))
+        if (!RNM_MapMarkerService::IsRNMMapMarkerCategory(Marker.CategoryName))
             continue;
+
+        FName StableClassId;
+        const bool bHasStableId = RNM_MapMarkerService::TryParseClassIdFromCategory(
+            Marker.CategoryName, StableClassId);
 
         FIntVector Cell = RNM_NodeScanner::GetGridCell(Marker.Location);
         TArray<int32> CandidateIndices = RNM_NodeScanner::GetNeighborCellIndices(*SpatialGrid, Cell);
 
+        const int32 ParenIdx = Marker.Name.Find(TEXT(" ("));
+        const FString LegacyPrefix = (ParenIdx != INDEX_NONE) ? Marker.Name.Left(ParenIdx) : Marker.Name;
+
         TArray<int32> ClusterNodeIndices;
         for (int32 NodeIndex : CandidateIndices)
         {
-            if (DiscoveredNodeIndices.Contains(NodeIndex))
-                continue;
+            if (DiscoveredNodeIndices.Contains(NodeIndex)) continue;
 
             const FResourceNodeInfo& Node = (*ResourceNodes)[NodeIndex];
+            if (FVector::DistSquared(Node.Location, Marker.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
 
-            if (Node.ResourceName != FName(*Marker.Name.Left(Marker.Name.Find(TEXT(" (")))))
-                continue;
+            if (bHasStableId)
+            {
+                if (Node.ResourceName != StableClassId) continue;
+            }
+            else
+            {
+                if (!Node.NodeActor) continue;
+                TSubclassOf<UFGResourceDescriptor> Cls = Node.NodeActor->GetResourceClass();
+                if (!Cls) continue;
+                const FName LegacyName(
+                    *UFGItemDescriptor::GetItemName(Cls).ToString());
+                const FName LegacyName2(
+                    *Node.NodeActor->GetResourceName().ToString());
+                const FName Pfx = FName(*LegacyPrefix);
+                if (Pfx != LegacyName && Pfx != LegacyName2) continue;
+            }
+            ClusterNodeIndices.Add(NodeIndex);
+        }
 
-            if (FVector::DistSquared(Node.Location, Marker.Location) <= RNM_NodeScanner::CLUSTER_RADIUS_SQ)
-                ClusterNodeIndices.Add(NodeIndex);
+        if (ClusterNodeIndices.Num() == 0 && !bHasStableId)
+        {
+            TSet<FName> ClassIdsInRange;
+            for (int32 NodeIndex : CandidateIndices)
+            {
+                if (DiscoveredNodeIndices.Contains(NodeIndex)) continue;
+                const FResourceNodeInfo& Node = (*ResourceNodes)[NodeIndex];
+                if (FVector::DistSquared(Node.Location, Marker.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
+                ClassIdsInRange.Add(Node.ResourceName);
+            }
+            if (ClassIdsInRange.Num() == 1)
+            {
+                for (int32 NodeIndex : CandidateIndices)
+                {
+                    if (DiscoveredNodeIndices.Contains(NodeIndex)) continue;
+                    const FResourceNodeInfo& Node = (*ResourceNodes)[NodeIndex];
+                    if (FVector::DistSquared(Node.Location, Marker.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
+                    ClusterNodeIndices.AddUnique(NodeIndex);
+                }
+            }
         }
 
         if (ClusterNodeIndices.Num() == 0)
@@ -99,8 +141,7 @@ void URNM_ClusterManager::DeleteAllRNMMarkers(UWorld* World)
     TArray<FMapMarker> MarkersToRemove;
     for (const FMapMarker& Marker : AllMarkers)
     {
-        if (Marker.CategoryName == TEXT("RNM::Ore") ||
-            Marker.CategoryName == TEXT("RNM::Fluid"))
+        if (RNM_MapMarkerService::IsRNMMapMarkerCategory(Marker.CategoryName))
         {
             MarkersToRemove.Add(Marker);
         }

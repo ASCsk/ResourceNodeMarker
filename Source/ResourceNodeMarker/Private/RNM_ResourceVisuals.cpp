@@ -1,6 +1,51 @@
 #include "RNM_ResourceVisuals.h"
-#include "FGResourceDescriptor.h"
-#include "FGItemDescriptor.h"
+
+namespace
+{
+const FName TryStripBlueprintC(const FName& N)
+{
+    const FString S = N.ToString();
+    if (S.EndsWith(TEXT("_C"), ESearchCase::CaseSensitive) && S.Len() > 2)
+        return FName(*S.LeftChop(2));
+    return NAME_None;
+}
+}
+
+URNM_ResourceVisuals::URNM_ResourceVisuals() = default;
+
+FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
+    const FName& ResourceName,
+    const bool bUseIcons) const
+{
+    if (const FResourceVisual* Found = ResourceVisualMap.Find(ResourceName))
+    {
+        FResourceVisual R = *Found;
+        if (bUseIcons)
+        {
+            if (const int32* Icon = IconMap.Find(ResourceName)) R.IconID = *Icon;
+        }
+        return R;
+    }
+
+    const FName Chopped = TryStripBlueprintC(ResourceName);
+    if (Chopped != NAME_None)
+    {
+        if (const FResourceVisual* Found = ResourceVisualMap.Find(Chopped))
+        {
+            FResourceVisual R = *Found;
+            if (bUseIcons)
+            {
+                if (const int32* Icon = IconMap.Find(Chopped)) R.IconID = *Icon;
+            }
+            return R;
+        }
+    }
+
+    FResourceVisual Default;
+    FStampPreset Preset;
+    Default.IconID = Preset.QuestionMark;
+    return Default;
+}
 
 void URNM_ResourceVisuals::GeneratePurityShades(
     const FLinearColor& BaseColor,
@@ -8,117 +53,15 @@ void URNM_ResourceVisuals::GeneratePurityShades(
     FLinearColor& OutNormal,
     FLinearColor& OutImpure)
 {
-    FLinearColor HSV = BaseColor.LinearRGBToHSV();
-    const float H = HSV.R;
-    const float S = HSV.G;
-    const float V = HSV.B;
-
     OutNormal = BaseColor;
 
-    // Pure: more saturated, slightly darker
-    OutPure = FLinearColor(H,
-        FMath::Clamp(S * 1.4f, 0.0f, 1.0f),
-        FMath::Clamp(V * 0.75f, 0.0f, 1.0f),
-        1.0f).HSVToLinearRGB();
+    FLinearColor Hsv = BaseColor.LinearRGBToHSV();
 
-    // Impure: less saturated, brighter
-    OutImpure = FLinearColor(H,
-        FMath::Clamp(S * 0.7f, 0.0f, 1.0f),
-        FMath::Clamp(V * 1.5f, 0.0f, 1.0f),
-        1.0f).HSVToLinearRGB();
-}
+    FLinearColor PureH = Hsv;
+    PureH.G = FMath::Clamp(Hsv.G * 1.12f, 0.0f, 1.0f);
+    OutPure = PureH.HSVToLinearRGB();
 
-URNM_ResourceVisuals::URNM_ResourceVisuals()
-{
-    FStampPreset Stamp;
-
-    auto MakeColor = [](const FString& Hex)
-        {
-            return FLinearColor::FromSRGBColor(FColor::FromHex(Hex));
-        };
-
-    auto AddSolid = [&](const FName& Name, const FString& BaseHex)
-        {
-            FResourceVisual Visual;
-            Visual.IconID = Stamp.Rock;
-            GeneratePurityShades(
-                MakeColor(BaseHex),
-                Visual.PureColor,
-                Visual.NormalColor,
-                Visual.ImpureColor);
-
-            ResourceVisualMap.Add(Name, Visual);
-        };
-
-    auto AddLiquid = [&](const FName& Name, const FString& BaseHex)
-        {
-            FResourceVisual Visual;
-            Visual.IconID = Stamp.Fluids;
-            GeneratePurityShades(
-                MakeColor(BaseHex),
-                Visual.PureColor,
-                Visual.NormalColor,
-                Visual.ImpureColor);
-
-            ResourceVisualMap.Add(Name, Visual);
-        };
-
-    // ROCK RESOURCES — base color is the Normal shade from before
-    AddSolid(TEXT("Copper Ore"), TEXT("CF4100"));
-    AddSolid(TEXT("Iron Ore"), TEXT("93959E"));
-    AddSolid(TEXT("Limestone"), TEXT("D1B97B"));
-    AddSolid(TEXT("Caterium Ore"), TEXT("FFCB00"));
-    AddSolid(TEXT("Coal"), TEXT("403B3B"));
-    AddSolid(TEXT("Sulfur"), TEXT("E6E615"));
-    AddSolid(TEXT("Bauxite"), TEXT("FFB65E"));
-    AddSolid(TEXT("Raw Quartz"), TEXT("FED4FF"));
-    AddSolid(TEXT("Uranium"), TEXT("85FF2E"));
-    AddSolid(TEXT("SAM"), TEXT("A332C9"));
-
-    // FLUID RESOURCES
-    AddLiquid(TEXT("Water"), TEXT("17E3CE"));
-    AddLiquid(TEXT("Crude Oil"), TEXT("1F1F1F"));
-    AddLiquid(TEXT("Nitrogen Gas"), TEXT("ADADAD"));
-    AddLiquid(TEXT("Geyser"), TEXT("00FAB3"));
-
-    FIconsPreset Icons;
-    IconMap =
-    {
-        { TEXT("Copper Ore"),   Icons.Copper    },
-        { TEXT("Iron Ore"),     Icons.Iron      },
-        { TEXT("Limestone"),    Icons.Limestone },
-        { TEXT("Caterium Ore"), Icons.Caterium  },
-        { TEXT("Coal"),         Icons.Coal      },
-        { TEXT("Sulfur"),       Icons.Sulfur    },
-        { TEXT("Bauxite"),      Icons.Bauxite   },
-        { TEXT("Raw Quartz"),   Icons.Quartz    },
-        { TEXT("Uranium"),      Icons.Uranium   },
-        { TEXT("SAM"),          Icons.Sam       },
-    };
-
-}
-
-FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceName, bool bUseIcons) const
-{
-    if (const FResourceVisual* Found = ResourceVisualMap.Find(ResourceName))
-    {
-        FResourceVisual Visual = *Found;
-
-        if (bUseIcons)
-        {
-            if (const int32* IconID = IconMap.Find(ResourceName))
-                Visual.IconID = *IconID;
-            else
-                UE_LOG(LogResourceNodeMarker, Warning,
-                    TEXT("RNM_ResourceVisuals: No actual icon found for '%s', using preset"),
-                    *ResourceName.ToString());
-        }
-        return Visual;
-    }
-
-    UE_LOG(LogResourceNodeMarker, Warning,
-        TEXT("RNM_ResourceVisuals: No visual found for '%s', using fallback"),
-        *ResourceName.ToString());
-
-    return FResourceVisual();
+    FLinearColor ImpH = Hsv;
+    ImpH.G = FMath::Clamp(Hsv.G * 0.78f, 0.0f, 1.0f);
+    OutImpure = ImpH.HSVToLinearRGB();
 }

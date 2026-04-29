@@ -32,6 +32,14 @@ public:
 
     static ECompassViewDistance ParseCompassViewDistance(int32 Value);
 
+    /** RNM markers (legacy RNM::Ore / RNM::Fluid or v2 RNM::Ore#ClassFName). */
+    static bool IsRNMMapMarkerCategory(const FString& Category);
+
+    /** If category is v2 (embeds #ClassFName), returns true and the stable id. */
+    static bool TryParseClassIdFromCategory(const FString& Category, FName& OutClassFName);
+
+    static FString BuildCategoryName(bool bIsFluid, FName ClassFName);
+
     static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
 
 private:

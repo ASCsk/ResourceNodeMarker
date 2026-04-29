@@ -12,6 +12,7 @@ struct FResourceNodeInfo
     AFGResourceNode* NodeActor = nullptr;
 
     FVector Location;
+    /** UClass FName of UFGResourceDescriptor — language-invariant, safe for save/rebuild and visuals. */
     FName ResourceName;
     EResourcePurity Purity;
 };
@@ -23,6 +24,7 @@ struct FResourceNodeCluster
 
     TArray<FResourceNodeInfo> Nodes;
     FVector AverageLocation = FVector::ZeroVector;
+    /** UFGResourceDescriptor UClass FName, same as FResourceNodeInfo::ResourceName. */
     FName ResourceName;
     EResourcePurity DominantPurity = RP_Normal;
     FGuid CurrentMarkerGUID; // track the active marker so it can be deleted on update

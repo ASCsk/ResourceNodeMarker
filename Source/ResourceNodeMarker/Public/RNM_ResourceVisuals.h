@@ -64,11 +64,11 @@ private:
 public:
     URNM_ResourceVisuals();
 
-    // Map resource name -> visual info
+    /** Keys: UFGResourceDescriptor UClass FName (e.g. Desc_OreIron), language-invariant. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resources")
     TMap<FName, FResourceVisual> ResourceVisualMap;
 
-    // Helper to get a visual by resource name
+    // Helper to get a visual by resource class FName; falls back to stripping a trailing _C for Blueprints
     UFUNCTION(BlueprintPure, Category = "Resources")
     FResourceVisual GetResourceVisual(const FName& ResourceName, bool bUseIcons) const;
 
