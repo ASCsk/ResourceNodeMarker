@@ -38,5 +38,4 @@ public:
     // Cluster radius — max distance between two nodes to be considered neighbors
     static constexpr float CLUSTER_RADIUS = 25000.0f; // 250m in cm
     static constexpr float CLUSTER_RADIUS_SQ = CLUSTER_RADIUS * CLUSTER_RADIUS;
-    static constexpr float CLUSTER_RADIUS_Z_HEIGHT = 10000.0f; // 100m in cm
 };

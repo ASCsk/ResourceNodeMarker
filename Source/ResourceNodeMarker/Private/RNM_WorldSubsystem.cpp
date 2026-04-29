@@ -64,6 +64,8 @@ void URNM_WorldSubsystem::InitializeConfig()
         ConfigData.ExtractorMarkerBehavior == 2 ? TEXT("Highlight") : TEXT("Invalid"));
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Icon Settings ---"));
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Use Icons: %s"), ConfigData.bUseIcons ? TEXT("YES") : TEXT("NO"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Clustering ---"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Cluster nodes: %s"), ConfigData.bClusterNodes ? TEXT("YES (shared markers)") : TEXT("NO (one marker per node)"));
 
     ScanAllNodes();
 }
@@ -78,11 +80,11 @@ void URNM_WorldSubsystem::ScanAllNodes()
     ClusterManager->Initialize(ResourceNodes, SpatialGrid, ResourceVisuals, ConfigData);
     ClusterManager->RebuildClustersFromExistingMarkers(World);
     ClusterManager->DeleteAllRNMMarkers(World);
-    ClusterManager->CreateAllClusterMarkers(World);
+    const int32 Created = ClusterManager->CreateAllClusterMarkers(World);
 
     UE_LOG(LogResourceNodeMarker, Log,
-        TEXT("RNM: Scanned %d nodes, created %d cluster markers"),
-        ResourceNodes.Num(), 0);
+        TEXT("RNM: Scanned %d resource nodes, created %d cluster markers from discovery state"),
+        ResourceNodes.Num(), Created);
 }
 
 void URNM_WorldSubsystem::CheckPlayerProximity()

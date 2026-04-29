@@ -38,6 +38,13 @@ public:
     UPROPERTY(BlueprintReadWrite)
     float ClusterHeightTolerance = 100.0f; // meters, converted to cm in code
 
+    /**
+     * When true (default), nearby nodes of the same resource share one map marker (clustering).
+     * When false, each node gets its own marker.
+     */
+    UPROPERTY(BlueprintReadWrite)
+    bool bClusterNodes = true;
+
     /* Retrieves active configuration value and returns object of this struct containing it */
     static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext) {
         FResourceNodeMarker_ConfigStruct ConfigStruct{};

@@ -29,19 +29,20 @@ public:
     void RebuildClustersFromExistingMarkers(UWorld* World);
 
     /**
-     * Deletes all markers under RNM::Ore and RNM::Fluid categories.
+     * Deletes RNM map markers (legacy and RNM::#class-id categories).
      */
     void DeleteAllRNMMarkers(UWorld* World);
 
     /**
-     * Creates one marker per discovered cluster.
+     * Creates one map marker per cluster (or one per node when bClusterNodes is false).
      * Should be called after DeleteAllRNMMarkers.
      */
-    void CreateAllClusterMarkers(UWorld* World);
+    /** @return Number of markers created successfully. */
+    int32 CreateAllClusterMarkers(UWorld* World);
 
     /**
      * Called when the player discovers a new node.
-     * Handles solo cluster creation, adding to existing cluster, or merging clusters.
+     * When clustering is enabled: adds to a neighbor cluster or merges; when disabled, always a solo marker.
      */
     void OnNodeDiscovered(UWorld* World, int32 NodeIndex);
 
@@ -58,8 +59,10 @@ public:
      void OnExtractorPlaced(UWorld* World, const FVector& NodeLocation);
 
 private:
-    int32 FindOrCreateCluster(int32 NodeIndex);
     void MergeClusters(int32 TargetIndex, int32 SourceIndex);
+    void ApplySoloClusteringLayoutIfNeeded();
+    int32 FindResourceNodeIndex(const FResourceNodeInfo& Info) const;
+
     float ClusterRadiusSq = 0.0f;
     float ClusterHeightTolerance = 0.0f;
 

@@ -145,17 +145,6 @@ FString RNM_MapMarkerService::BuildCategoryName(bool bIsFluid, FName ClassFName)
         bIsFluid ? TEXT("Fluid") : TEXT("Ore"), *ClassFName.ToString());
 }
 
-FString RNM_MapMarkerService::GetPurityString(EResourcePurity Purity)
-{
-    switch (Purity)
-    {
-    case RP_Inpure: return TEXT("Impure");
-    case RP_Normal: return TEXT("Normal");
-    case RP_Pure:   return TEXT("Pure");
-    default:        return TEXT("Unknown");
-    }
-}
-
 ECompassViewDistance RNM_MapMarkerService::ParseCompassViewDistance(int32 Value)
 {
     switch (Value)

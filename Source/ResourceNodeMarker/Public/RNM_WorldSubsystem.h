@@ -25,8 +25,6 @@ private:
     void ScanAllNodes();
     void CheckPlayerProximity();
     void BindBuildableDelegate();
-    bool HasMigrationRun() const;
-    void MarkMigrationComplete();
 
     UFUNCTION()
     void OnBuildableConstructed(AFGBuildable* Buildable);

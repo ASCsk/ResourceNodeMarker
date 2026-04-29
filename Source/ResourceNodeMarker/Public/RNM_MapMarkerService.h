@@ -44,5 +44,4 @@ public:
 
 private:
     static FString BuildClusterMarkerName(const FResourceNodeCluster& Cluster);
-    static FString GetPurityString(EResourcePurity Purity);
 };
