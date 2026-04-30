@@ -22,6 +22,7 @@ void RNM_NodeScanner::ScanNodes(UWorld* World, TArray<FResourceNodeInfo>& OutNod
         Info.NodeActor = Node;
         Info.Location = Node->GetActorLocation();
         Info.ResourceName = ResClass->GetFName();
+        Info.ResourceDescriptorClass = ResClass;
         Info.Purity = Node->GetResoucePurity();
 
         OutNodes.Add(Info);

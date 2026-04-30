@@ -18,8 +18,21 @@ void AppendUniqueKey(TArray<FName>& Keys, const FName& N)
         Keys.Add(N);
 }
 
-/** When IconMap / ResourceVisualMap miss, map vanilla descriptor names to stock map stamp IDs (from FIconsPreset / FStampPreset). */
-int32 GuessMapIconIdForResourceClass(TSubclassOf<UFGResourceDescriptor> ResClass)
+/** Stock stamps when bUseIcons is false: rock for solids, fluid/drop for liquids/gases. */
+int32 GetStampIconIdForOreOrFluid(TSubclassOf<UFGResourceDescriptor> ResClass)
+{
+    FStampPreset Sp;
+    if (!ResClass) return Sp.Rock;
+
+    const EResourceForm Form = UFGItemDescriptor::GetForm(ResClass);
+    if (Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS)
+        return Sp.Fluids;
+
+    return Sp.Rock;
+}
+
+/** When bUseIcons is true and visuals miss: map descriptor class names to in-game map icon IDs (FIconsPreset). */
+int32 ResolveInGameIconIdFromResourceClass(TSubclassOf<UFGResourceDescriptor> ResClass)
 {
     if (!ResClass) return 656;
 
@@ -74,6 +87,20 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
             AppendUniqueKey(Keys, FName(*ItemName.ToString()));
     }
 
+    FStampPreset Preset;
+
+    auto FinalizeIconId = [&](FResourceVisual& R)
+    {
+        if (!bUseIcons)
+        {
+            R.IconID = GetStampIconIdForOreOrFluid(ResClass);
+            return;
+        }
+        if (!ResClass) return;
+        if (R.IconID != Preset.QuestionMark && R.IconID != 0) return;
+        R.IconID = ResolveInGameIconIdFromResourceClass(ResClass);
+    };
+
     for (const FName& Key : Keys)
     {
         if (const FResourceVisual* Found = ResourceVisualMap.Find(Key))
@@ -84,6 +111,7 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
                 if (const int32* Icon = IconMap.Find(Key))
                     R.IconID = *Icon;
             }
+            FinalizeIconId(R);
             return R;
         }
     }
@@ -96,16 +124,18 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
             {
                 FResourceVisual R;
                 R.IconID = *Icon;
+                FinalizeIconId(R);
                 return R;
             }
         }
     }
 
     FResourceVisual Default;
-    FStampPreset Preset;
     Default.IconID = Preset.QuestionMark;
-    if (bUseIcons && ResClass)
-        Default.IconID = GuessMapIconIdForResourceClass(ResClass);
+    if (!bUseIcons)
+        Default.IconID = GetStampIconIdForOreOrFluid(ResClass);
+    else if (ResClass)
+        Default.IconID = ResolveInGameIconIdFromResourceClass(ResClass);
     return Default;
 }
 

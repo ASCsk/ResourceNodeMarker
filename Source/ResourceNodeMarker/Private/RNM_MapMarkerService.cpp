@@ -30,12 +30,10 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     FName LegacyDisplayKey = NAME_None;
     for (const FResourceNodeInfo& N : Cluster.Nodes)
     {
-        if (N.NodeActor)
-        {
-            ResClass = N.NodeActor->GetResourceClass();
+        if (!ResClass && N.ResourceDescriptorClass)
+            ResClass = N.ResourceDescriptorClass;
+        if (LegacyDisplayKey == NAME_None && N.NodeActor)
             LegacyDisplayKey = FName(*N.NodeActor->GetResourceName().ToString());
-            break;
-        }
     }
 
     FResourceVisual Visual = ResourceVisuals->GetResourceVisual(

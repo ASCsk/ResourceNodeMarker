@@ -1,6 +1,8 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
 #include "FGResourceNode.h"
+#include "FGResourceDescriptor.h"
 #include "RNM_ResourceNodeInfo.generated.h"
 
 USTRUCT()
@@ -14,6 +16,9 @@ struct FResourceNodeInfo
     FVector Location;
     /** UClass FName of UFGResourceDescriptor — language-invariant, safe for save/rebuild and visuals. */
     FName ResourceName;
+    /** Same as GetResourceClass() at scan time; kept so markers still resolve visuals if NodeActor is gone. */
+    UPROPERTY()
+    TSubclassOf<UFGResourceDescriptor> ResourceDescriptorClass = nullptr;
     EResourcePurity Purity;
 };
 
