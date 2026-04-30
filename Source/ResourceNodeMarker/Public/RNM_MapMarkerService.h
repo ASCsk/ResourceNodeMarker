@@ -38,7 +38,7 @@ public:
     /** Legacy: category held RNM::Ore#ClassFName. Still parsed for old saves. */
     static bool TryParseClassIdFromCategory(const FString& Category, FName& OutClassFName);
 
-    /** Legacy markers only: parsed embedded id from old Name suffix " #RNM:ClassName". New markers omit this. */
+    /** Current: stable id suffix on marker Name: " ... #RNM:Desc_OreIron_C" */
     static bool TryParseClassIdFromMarkerName(const FString& MarkerName, FName& OutClassFName);
 
     /** Short UI category only: RNM::Ore or RNM::Fluid */
