@@ -129,9 +129,7 @@ FString RNM_MapMarkerService::BuildClusterMarkerName(const FResourceNodeCluster&
     if (ResourceLabel.IsEmpty())
         ResourceLabel = Cluster.ResourceName.ToString();
 
-    FString Base = FString::Printf(TEXT("%s (%s)"), *ResourceLabel, *PurityStr);
-    Base += FString::Printf(TEXT(" #RNM:%s"), *Cluster.ResourceName.ToString());
-    return Base;
+    return FString::Printf(TEXT("%s (%s)"), *ResourceLabel, *PurityStr);
 }
 
 bool RNM_MapMarkerService::IsRNMMapMarkerCategory(const FString& Category)
