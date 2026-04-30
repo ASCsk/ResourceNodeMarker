@@ -1,6 +1,9 @@
 #include "RNM_ResourceVisuals.h"
+#include "ResourceNodeMarker.h"
 #include "FGItemDescriptor.h"
 #include "FGResourceDescriptor.h"
+
+#include <initializer_list>
 
 namespace
 {
@@ -59,7 +62,96 @@ int32 ResolveInGameIconIdFromResourceClass(TSubclassOf<UFGResourceDescriptor> Re
 }
 }
 
-URNM_ResourceVisuals::URNM_ResourceVisuals() = default;
+URNM_ResourceVisuals::URNM_ResourceVisuals()
+{
+    FStampPreset Stamp;
+    FIconsPreset Icons;
+
+    auto MakeColor = [](const FString& Hex)
+    {
+        return FLinearColor::FromSRGBColor(FColor::FromHex(Hex));
+    };
+
+    /** Same purity shades + stamp icon for every lookup key (English display + UClass FNames). */
+    auto AddResourceGroup = [&](const std::initializer_list<const TCHAR*> Names, const FString& BaseHex,
+                                const bool bLiquid)
+    {
+        FResourceVisual Visual;
+        Visual.IconID = bLiquid ? Stamp.Fluids : Stamp.Rock;
+        GeneratePurityShades(
+            MakeColor(BaseHex),
+            Visual.PureColor,
+            Visual.NormalColor,
+            Visual.ImpureColor);
+        for (const TCHAR* Name : Names)
+            ResourceVisualMap.Add(FName(Name), Visual);
+    };
+
+    // Solid ores: legacy English keys (main) plus descriptor class FNames for language-independent scans.
+    AddResourceGroup(
+        {TEXT("Copper Ore"), TEXT("Desc_OreCopper_C"), TEXT("Desc_OreCopper"), TEXT("BP_OreCopper_C")},
+        TEXT("CF4100"), false);
+    AddResourceGroup(
+        {TEXT("Iron Ore"), TEXT("Desc_OreIron_C"), TEXT("Desc_OreIron"), TEXT("BP_OreIron_C")},
+        TEXT("93959E"), false);
+    AddResourceGroup(
+        {TEXT("Limestone"), TEXT("Desc_Stone_C"), TEXT("Desc_Stone"), TEXT("Desc_Limestone_C"), TEXT("BP_Stone_C")},
+        TEXT("D1B97B"), false);
+    AddResourceGroup(
+        {TEXT("Caterium Ore"), TEXT("Desc_OreCaterium_C"), TEXT("Desc_OreCaterium"), TEXT("BP_OreCaterium_C")},
+        TEXT("FFCB00"), false);
+    AddResourceGroup(
+        {TEXT("Coal"), TEXT("Desc_OreCoal_C"), TEXT("Desc_OreCoal"), TEXT("BP_OreCoal_C")},
+        TEXT("403B3B"), false);
+    AddResourceGroup(
+        {TEXT("Sulfur"), TEXT("Desc_OreSulfur_C"), TEXT("Desc_OreSulfur"), TEXT("BP_OreSulfur_C")},
+        TEXT("E6E615"), false);
+    AddResourceGroup(
+        {TEXT("Bauxite"), TEXT("Desc_OreBauxite_C"), TEXT("Desc_OreBauxite"), TEXT("BP_OreBauxite_C")},
+        TEXT("FFB65E"), false);
+    AddResourceGroup(
+        {TEXT("Raw Quartz"), TEXT("Desc_OreQuartz_C"), TEXT("Desc_OreQuartz"), TEXT("Desc_Crystal_C"), TEXT("BP_OreQuartz_C")},
+        TEXT("FED4FF"), false);
+    AddResourceGroup(
+        {TEXT("Uranium"), TEXT("Desc_OreUranium_C"), TEXT("Desc_OreUranium"), TEXT("BP_OreUranium_C")},
+        TEXT("85FF2E"), false);
+    AddResourceGroup(
+        {TEXT("SAM"), TEXT("Desc_SAM_C"), TEXT("Desc_SAM"), TEXT("Desc_OreSAM_C"), TEXT("BP_SAM_C")},
+        TEXT("A332C9"), false);
+
+    AddResourceGroup(
+        {TEXT("Water"), TEXT("Desc_Water_C"), TEXT("Desc_Water"), TEXT("BP_Water_C")},
+        TEXT("17E3CE"), true);
+    AddResourceGroup(
+        {TEXT("Crude Oil"), TEXT("Desc_LiquidOil_C"), TEXT("Desc_LiquidOil"), TEXT("BP_LiquidOil_C")},
+        TEXT("1F1F1F"), true);
+    AddResourceGroup(
+        {TEXT("Nitrogen Gas"), TEXT("Desc_LiquidNitrogen_C"), TEXT("Desc_LiquidNitrogen"), TEXT("BP_LiquidNitrogen_C")},
+        TEXT("ADADAD"), true);
+    AddResourceGroup(
+        {TEXT("Geyser"), TEXT("Desc_WaterGeyser_C"), TEXT("Desc_WaterGeyser"), TEXT("BP_WaterGeyser_C")},
+        TEXT("00FAB3"), true);
+
+    auto AddIconPair = [&](const std::initializer_list<const TCHAR*> Names, const int32 IconId)
+    {
+        for (const TCHAR* N : Names)
+            IconMap.Add(FName(N), IconId);
+    };
+
+    AddIconPair({TEXT("Copper Ore"), TEXT("Desc_OreCopper_C"), TEXT("Desc_OreCopper"), TEXT("BP_OreCopper_C")}, Icons.Copper);
+    AddIconPair({TEXT("Iron Ore"), TEXT("Desc_OreIron_C"), TEXT("Desc_OreIron"), TEXT("BP_OreIron_C")}, Icons.Iron);
+    AddIconPair({TEXT("Limestone"), TEXT("Desc_Stone_C"), TEXT("Desc_Stone"), TEXT("Desc_Limestone_C"), TEXT("BP_Stone_C")},
+        Icons.Limestone);
+    AddIconPair({TEXT("Caterium Ore"), TEXT("Desc_OreCaterium_C"), TEXT("Desc_OreCaterium"), TEXT("BP_OreCaterium_C")},
+        Icons.Caterium);
+    AddIconPair({TEXT("Coal"), TEXT("Desc_OreCoal_C"), TEXT("Desc_OreCoal"), TEXT("BP_OreCoal_C")}, Icons.Coal);
+    AddIconPair({TEXT("Sulfur"), TEXT("Desc_OreSulfur_C"), TEXT("Desc_OreSulfur"), TEXT("BP_OreSulfur_C")}, Icons.Sulfur);
+    AddIconPair({TEXT("Bauxite"), TEXT("Desc_OreBauxite_C"), TEXT("Desc_OreBauxite"), TEXT("BP_OreBauxite_C")}, Icons.Bauxite);
+    AddIconPair({TEXT("Raw Quartz"), TEXT("Desc_OreQuartz_C"), TEXT("Desc_OreQuartz"), TEXT("Desc_Crystal_C"), TEXT("BP_OreQuartz_C")},
+        Icons.Quartz);
+    AddIconPair({TEXT("Uranium"), TEXT("Desc_OreUranium_C"), TEXT("Desc_OreUranium"), TEXT("BP_OreUranium_C")}, Icons.Uranium);
+    AddIconPair({TEXT("SAM"), TEXT("Desc_SAM_C"), TEXT("Desc_SAM"), TEXT("Desc_OreSAM_C"), TEXT("BP_SAM_C")}, Icons.Sam);
+}
 
 FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceName, const bool bUseIcons) const
 {
@@ -136,6 +228,10 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
         Default.IconID = GetStampIconIdForOreOrFluid(ResClass);
     else if (ResClass)
         Default.IconID = ResolveInGameIconIdFromResourceClass(ResClass);
+
+    UE_LOG(LogResourceNodeMarker, Warning,
+        TEXT("RNM_ResourceVisuals: No visual found for keys around '%s', using fallback"),
+        *ResourceClassFName.ToString());
     return Default;
 }
 
@@ -145,15 +241,22 @@ void URNM_ResourceVisuals::GeneratePurityShades(
     FLinearColor& OutNormal,
     FLinearColor& OutImpure)
 {
+    FLinearColor HSV = BaseColor.LinearRGBToHSV();
+    const float H = HSV.R;
+    const float S = HSV.G;
+    const float V = HSV.B;
+
     OutNormal = BaseColor;
 
-    FLinearColor Hsv = BaseColor.LinearRGBToHSV();
+    // Pure: more saturated, slightly darker
+    OutPure = FLinearColor(H,
+        FMath::Clamp(S * 1.4f, 0.0f, 1.0f),
+        FMath::Clamp(V * 0.75f, 0.0f, 1.0f),
+        1.0f).HSVToLinearRGB();
 
-    FLinearColor PureH = Hsv;
-    PureH.G = FMath::Clamp(Hsv.G * 1.12f, 0.0f, 1.0f);
-    OutPure = PureH.HSVToLinearRGB();
-
-    FLinearColor ImpH = Hsv;
-    ImpH.G = FMath::Clamp(Hsv.G * 0.78f, 0.0f, 1.0f);
-    OutImpure = ImpH.HSVToLinearRGB();
+    // Impure: less saturated, brighter
+    OutImpure = FLinearColor(H,
+        FMath::Clamp(S * 0.7f, 0.0f, 1.0f),
+        FMath::Clamp(V * 1.5f, 0.0f, 1.0f),
+        1.0f).HSVToLinearRGB();
 }
