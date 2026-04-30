@@ -1,4 +1,6 @@
 #include "RNM_ResourceVisuals.h"
+#include "FGItemDescriptor.h"
+#include "FGResourceDescriptor.h"
 
 namespace
 {
@@ -9,35 +11,66 @@ const FName TryStripBlueprintC(const FName& N)
         return FName(*S.LeftChop(2));
     return NAME_None;
 }
+
+void AppendUniqueKey(TArray<FName>& Keys, const FName& N)
+{
+    if (N != NAME_None && !Keys.Contains(N))
+        Keys.Add(N);
+}
 }
 
 URNM_ResourceVisuals::URNM_ResourceVisuals() = default;
 
-FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
-    const FName& ResourceName,
-    const bool bUseIcons) const
+FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceName, const bool bUseIcons) const
 {
-    if (const FResourceVisual* Found = ResourceVisualMap.Find(ResourceName))
+    return GetResourceVisual(ResourceName, nullptr, bUseIcons, NAME_None);
+}
+
+FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
+    const FName& ResourceClassFName,
+    TSubclassOf<UFGResourceDescriptor> ResClass,
+    const bool bUseIcons,
+    const FName OptionalLegacyDisplayKey) const
+{
+    TArray<FName> Keys;
+    AppendUniqueKey(Keys, ResourceClassFName);
+    AppendUniqueKey(Keys, TryStripBlueprintC(ResourceClassFName));
+    AppendUniqueKey(Keys, OptionalLegacyDisplayKey);
+
+    if (ResClass)
     {
-        FResourceVisual R = *Found;
-        if (bUseIcons)
-        {
-            if (const int32* Icon = IconMap.Find(ResourceName)) R.IconID = *Icon;
-        }
-        return R;
+        AppendUniqueKey(Keys, ResClass->GetFName());
+        AppendUniqueKey(Keys, TryStripBlueprintC(ResClass->GetFName()));
+        // Legacy map keys: English (or current locale) display name from the item descriptor
+        const FText ItemName = UFGItemDescriptor::GetItemName(ResClass);
+        if (!ItemName.IsEmpty())
+            AppendUniqueKey(Keys, FName(*ItemName.ToString()));
     }
 
-    const FName Chopped = TryStripBlueprintC(ResourceName);
-    if (Chopped != NAME_None)
+    for (const FName& Key : Keys)
     {
-        if (const FResourceVisual* Found = ResourceVisualMap.Find(Chopped))
+        if (const FResourceVisual* Found = ResourceVisualMap.Find(Key))
         {
             FResourceVisual R = *Found;
             if (bUseIcons)
             {
-                if (const int32* Icon = IconMap.Find(Chopped)) R.IconID = *Icon;
+                if (const int32* Icon = IconMap.Find(Key))
+                    R.IconID = *Icon;
             }
             return R;
+        }
+    }
+
+    if (bUseIcons)
+    {
+        for (const FName& Key : Keys)
+        {
+            if (const int32* Icon = IconMap.Find(Key))
+            {
+                FResourceVisual R;
+                R.IconID = *Icon;
+                return R;
+            }
         }
     }
 

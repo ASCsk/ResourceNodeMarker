@@ -2,6 +2,7 @@
 #include "ResourceNodeMarker.h"
 #include "FGItemDescriptor.h"
 #include "FGMapManager.h"
+#include "FGResourceDescriptor.h"
 
 bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     UWorld* World,
@@ -25,7 +26,20 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
             *Cluster.ResourceName.ToString());
     }
 
-    FResourceVisual Visual = ResourceVisuals->GetResourceVisual(Cluster.ResourceName, Config.bUseIcons);
+    TSubclassOf<UFGResourceDescriptor> ResClass = nullptr;
+    FName LegacyDisplayKey = NAME_None;
+    for (const FResourceNodeInfo& N : Cluster.Nodes)
+    {
+        if (N.NodeActor)
+        {
+            ResClass = N.NodeActor->GetResourceClass();
+            LegacyDisplayKey = FName(*N.NodeActor->GetResourceName().ToString());
+            break;
+        }
+    }
+
+    FResourceVisual Visual = ResourceVisuals->GetResourceVisual(
+        Cluster.ResourceName, ResClass, Config.bUseIcons, LegacyDisplayKey);
     FStampPreset Icons;
     const bool bIsFluid = (Visual.IconID == Icons.Fluids);
 

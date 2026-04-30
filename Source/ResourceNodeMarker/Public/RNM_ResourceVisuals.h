@@ -1,8 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
 #include "UObject/NoExportTypes.h"
 #include "RNM_ResourceVisuals.generated.h"
+
+class UFGResourceDescriptor;
 
 USTRUCT(BlueprintType)
 struct FResourceVisual
@@ -64,13 +67,25 @@ private:
 public:
     URNM_ResourceVisuals();
 
-    /** Keys: UFGResourceDescriptor UClass FName (e.g. Desc_OreIron), language-invariant. */
+    /**
+     * Keys: prefer UFGResourceDescriptor UClass FName (e.g. Desc_OreIron_C).
+     * Legacy entries keyed by English display name (e.g. from GetItemName) still resolve via GetResourceVisual(..., ResClass, ...).
+     */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resources")
     TMap<FName, FResourceVisual> ResourceVisualMap;
 
-    // Helper to get a visual by resource class FName; falls back to stripping a trailing _C for Blueprints
+    /** Resolves visuals using class FName, then _C strip, then localized display name as FName (matches legacy map keys). */
     UFUNCTION(BlueprintPure, Category = "Resources")
     FResourceVisual GetResourceVisual(const FName& ResourceName, bool bUseIcons) const;
+
+    /**
+     * @param OptionalLegacyDisplayKey FName of the node's current GetResourceName() string; helps match old map keys.
+     */
+    FResourceVisual GetResourceVisual(
+        const FName& ResourceClassFName,
+        TSubclassOf<UFGResourceDescriptor> ResClass,
+        bool bUseIcons,
+        FName OptionalLegacyDisplayKey = NAME_None) const;
 
     /**
      * Generates Pure/Normal/Impure shades from a single base color.
