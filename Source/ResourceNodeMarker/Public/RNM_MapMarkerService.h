@@ -35,10 +35,14 @@ public:
     /** RNM markers (legacy RNM::Ore / RNM::Fluid or v2 RNM::Ore#ClassFName). */
     static bool IsRNMMapMarkerCategory(const FString& Category);
 
-    /** If category is v2 (embeds #ClassFName), returns true and the stable id. */
+    /** Legacy: category held RNM::Ore#ClassFName. Still parsed for old saves. */
     static bool TryParseClassIdFromCategory(const FString& Category, FName& OutClassFName);
 
-    static FString BuildCategoryName(bool bIsFluid, FName ClassFName);
+    /** Current: stable id suffix on marker Name: " ... #RNM:Desc_OreIron_C" */
+    static bool TryParseClassIdFromMarkerName(const FString& MarkerName, FName& OutClassFName);
+
+    /** Short UI category only: RNM::Ore or RNM::Fluid */
+    static FString BuildCategoryName(bool bIsFluid);
 
     static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
 

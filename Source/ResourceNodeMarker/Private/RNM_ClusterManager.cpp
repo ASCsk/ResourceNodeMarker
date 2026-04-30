@@ -40,14 +40,23 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
             continue;
 
         FName StableClassId;
-        const bool bHasStableId = RNM_MapMarkerService::TryParseClassIdFromCategory(
+        bool bHasStableId = RNM_MapMarkerService::TryParseClassIdFromCategory(
             Marker.CategoryName, StableClassId);
+        if (!bHasStableId)
+            bHasStableId = RNM_MapMarkerService::TryParseClassIdFromMarkerName(Marker.Name, StableClassId);
 
         FIntVector Cell = RNM_NodeScanner::GetGridCell(Marker.Location);
         TArray<int32> CandidateIndices = RNM_NodeScanner::GetNeighborCellIndices(*SpatialGrid, Cell);
 
-        const int32 ParenIdx = Marker.Name.Find(TEXT(" ("));
-        const FString LegacyPrefix = (ParenIdx != INDEX_NONE) ? Marker.Name.Left(ParenIdx) : Marker.Name;
+        FString NameForLegacy = Marker.Name;
+        {
+            static const FString RnmTag(TEXT(" #RNM:"));
+            const int32 TagIdx = NameForLegacy.Find(RnmTag);
+            if (TagIdx != INDEX_NONE)
+                NameForLegacy = NameForLegacy.Left(TagIdx);
+        }
+        const int32 ParenIdx = NameForLegacy.Find(TEXT(" ("));
+        const FString LegacyPrefix = (ParenIdx != INDEX_NONE) ? NameForLegacy.Left(ParenIdx) : NameForLegacy;
 
         TArray<int32> ClusterNodeIndices;
         for (int32 NodeIndex : CandidateIndices)

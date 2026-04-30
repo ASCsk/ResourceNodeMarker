@@ -17,6 +17,33 @@ void AppendUniqueKey(TArray<FName>& Keys, const FName& N)
     if (N != NAME_None && !Keys.Contains(N))
         Keys.Add(N);
 }
+
+/** When IconMap / ResourceVisualMap miss, map vanilla descriptor names to stock map stamp IDs (from FIconsPreset / FStampPreset). */
+int32 GuessMapIconIdForResourceClass(TSubclassOf<UFGResourceDescriptor> ResClass)
+{
+    if (!ResClass) return 656;
+
+    const EResourceForm Form = UFGItemDescriptor::GetForm(ResClass);
+    if (Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS)
+        return 657;
+
+    const FString S = ResClass->GetName();
+    FIconsPreset Ip;
+    if (S.Contains(TEXT("Iron"))) return Ip.Iron;
+    if (S.Contains(TEXT("Copper"))) return Ip.Copper;
+    if (S.Contains(TEXT("Limestone"))) return Ip.Limestone;
+    if (S.Contains(TEXT("Stone"))) return Ip.Limestone;
+    if (S.Contains(TEXT("Coal"))) return Ip.Coal;
+    if (S.Contains(TEXT("Sulfur"))) return Ip.Sulfur;
+    if (S.Contains(TEXT("Bauxite"))) return Ip.Bauxite;
+    if (S.Contains(TEXT("Quartz"))) return Ip.Quartz;
+    if (S.Contains(TEXT("Uranium"))) return Ip.Uranium;
+    if (S.Contains(TEXT("Caterium"))) return Ip.Caterium;
+    if (S.Contains(TEXT("Sam"))) return Ip.Sam;
+
+    FStampPreset Sp;
+    return Sp.Rock;
+}
 }
 
 URNM_ResourceVisuals::URNM_ResourceVisuals() = default;
@@ -77,6 +104,8 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
     FResourceVisual Default;
     FStampPreset Preset;
     Default.IconID = Preset.QuestionMark;
+    if (bUseIcons && ResClass)
+        Default.IconID = GuessMapIconIdForResourceClass(ResClass);
     return Default;
 }
 
