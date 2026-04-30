@@ -1,8 +1,25 @@
 #include "RNM_MapMarkerService.h"
 #include "ResourceNodeMarker.h"
+#include "RNM_ResourceVisuals.h"
 #include "FGItemDescriptor.h"
 #include "FGMapManager.h"
 #include "FGResourceDescriptor.h"
+
+namespace
+{
+bool AreDefaultPurityColors(const FResourceVisual& V)
+{
+    constexpr FLinearColor White = FLinearColor::White;
+    return V.PureColor == White && V.NormalColor == White && V.ImpureColor == White;
+}
+
+void ApplyPingColorPurityGradient(FResourceVisual& Visual, TSubclassOf<UFGResourceDescriptor> ResClass)
+{
+    if (!ResClass) return;
+    const FLinearColor Base = UFGResourceDescriptor::GetPingColor(ResClass);
+    URNM_ResourceVisuals::GeneratePurityShades(Base, Visual.PureColor, Visual.NormalColor, Visual.ImpureColor);
+}
+}
 
 bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     UWorld* World,
@@ -38,6 +55,9 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
 
     FResourceVisual Visual = ResourceVisuals->GetResourceVisual(
         Cluster.ResourceName, ResClass, Config.bUseIcons, LegacyDisplayKey);
+    if (ResClass && AreDefaultPurityColors(Visual))
+        ApplyPingColorPurityGradient(Visual, ResClass);
+
     FStampPreset Icons;
     const bool bIsFluid = ResClass
         ? (UFGItemDescriptor::GetForm(ResClass) == EResourceForm::RF_LIQUID
@@ -129,9 +149,7 @@ FString RNM_MapMarkerService::BuildClusterMarkerName(const FResourceNodeCluster&
     if (ResourceLabel.IsEmpty())
         ResourceLabel = Cluster.ResourceName.ToString();
 
-    FString Base = FString::Printf(TEXT("%s (%s)"), *ResourceLabel, *PurityStr);
-    Base += FString::Printf(TEXT(" #RNM:%s"), *Cluster.ResourceName.ToString());
-    return Base;
+    return FString::Printf(TEXT("%s (%s)"), *ResourceLabel, *PurityStr);
 }
 
 bool RNM_MapMarkerService::IsRNMMapMarkerCategory(const FString& Category)
