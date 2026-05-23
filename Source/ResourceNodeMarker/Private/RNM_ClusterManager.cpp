@@ -16,8 +16,10 @@ void URNM_ClusterManager::Initialize(
     SpatialGrid = &InSpatialGrid;
     ResourceVisuals = InResourceVisuals;
     Config = InConfig;
-    ClusterRadiusSq = (InConfig.ClusterRadius * 100.0f) * (InConfig.ClusterRadius * 100.0f);
-    ClusterHeightTolerance = InConfig.ClusterHeightTolerance * 100.0f;
+    const float ClusterRadiusCm = FResourceNodeMarker_ConfigStruct::GetClusterRadiusCm(InConfig);
+    ClusterRadiusSq = ClusterRadiusCm * ClusterRadiusCm;
+    ClusterHeightTolerance = FResourceNodeMarker_ConfigStruct::GetClusterHeightToleranceCm(InConfig);
+    GridCellSizeCm = ClusterRadiusCm;
 
     DiscoveredClusters.Reset();
     NodeToClusterMap.Reset();
@@ -45,7 +47,7 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
         if (!bHasStableId)
             bHasStableId = RNM_MapMarkerService::TryParseClassIdFromMarkerName(Marker.Name, StableClassId);
 
-        FIntVector Cell = RNM_NodeScanner::GetGridCell(Marker.Location);
+        FIntVector Cell = RNM_NodeScanner::GetGridCell(Marker.Location, GridCellSizeCm);
         TArray<int32> CandidateIndices = RNM_NodeScanner::GetNeighborCellIndices(*SpatialGrid, Cell);
 
         FString NameForLegacy = Marker.Name;
@@ -64,7 +66,8 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
             if (DiscoveredNodeIndices.Contains(NodeIndex)) continue;
 
             const FResourceNodeInfo& Node = (*ResourceNodes)[NodeIndex];
-            if (FVector::DistSquared(Node.Location, Marker.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
+            if (FVector::DistSquared(Node.Location, Marker.Location) > ClusterRadiusSq) continue;
+            if (FMath::Abs(Node.Location.Z - Marker.Location.Z) > ClusterHeightTolerance) continue;
 
             if (bHasStableId)
             {
@@ -92,7 +95,8 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
             {
                 if (DiscoveredNodeIndices.Contains(NodeIndex)) continue;
                 const FResourceNodeInfo& Node = (*ResourceNodes)[NodeIndex];
-                if (FVector::DistSquared(Node.Location, Marker.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
+                if (FVector::DistSquared(Node.Location, Marker.Location) > ClusterRadiusSq) continue;
+                if (FMath::Abs(Node.Location.Z - Marker.Location.Z) > ClusterHeightTolerance) continue;
                 ClassIdsInRange.Add(Node.ResourceName);
             }
             if (ClassIdsInRange.Num() == 1)
@@ -101,7 +105,8 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
                 {
                     if (DiscoveredNodeIndices.Contains(NodeIndex)) continue;
                     const FResourceNodeInfo& Node = (*ResourceNodes)[NodeIndex];
-                    if (FVector::DistSquared(Node.Location, Marker.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
+                    if (FVector::DistSquared(Node.Location, Marker.Location) > ClusterRadiusSq) continue;
+                    if (FMath::Abs(Node.Location.Z - Marker.Location.Z) > ClusterHeightTolerance) continue;
                     ClusterNodeIndices.AddUnique(NodeIndex);
                 }
             }
@@ -220,7 +225,7 @@ int32 URNM_ClusterManager::FindResourceNodeIndex(const FResourceNodeInfo& Info) 
 
 void URNM_ClusterManager::ApplySoloClusteringLayoutIfNeeded()
 {
-    if (Config.bClusterNodes) return;
+    if (FResourceNodeMarker_ConfigStruct::IsClusteringEnabled(Config)) return;
 
     TArray<FResourceNodeCluster> Split;
     TMap<int32, int32> NewNodeToCluster;
@@ -264,8 +269,22 @@ void URNM_ClusterManager::ApplySoloClusteringLayoutIfNeeded()
     NodeToClusterMap = MoveTemp(NewNodeToCluster);
 }
 
-void URNM_ClusterManager::MergeClusters(int32 TargetIndex, int32 SourceIndex)
+void URNM_ClusterManager::MergeClusters(UWorld* World, int32 TargetIndex, int32 SourceIndex)
 {
+    FResourceNodeCluster& SourceCluster = DiscoveredClusters[SourceIndex];
+
+    if (SourceCluster.CurrentMarkerGUID.IsValid() && World)
+    {
+        if (AFGMapManager* MapManager = AFGMapManager::Get(World))
+        {
+            MapManager->Authority_RemoveMapMarkerByID(SourceCluster.CurrentMarkerGUID);
+            UE_LOG(LogResourceNodeMarker, Log,
+                TEXT("RNM_ClusterManager: Removed merged-away cluster marker for %s"),
+                *SourceCluster.ResourceName.ToString());
+        }
+        SourceCluster.CurrentMarkerGUID.Invalidate();
+    }
+
     // Remap all nodes from source to target
     for (auto& Pair : NodeToClusterMap)
     {
@@ -273,11 +292,9 @@ void URNM_ClusterManager::MergeClusters(int32 TargetIndex, int32 SourceIndex)
             Pair.Value = TargetIndex;
     }
 
-    DiscoveredClusters[TargetIndex].MergeWith(DiscoveredClusters[SourceIndex]);
+    DiscoveredClusters[TargetIndex].MergeWith(SourceCluster);
 
-    // Invalidate source
-    DiscoveredClusters[SourceIndex].Nodes.Reset();
-    DiscoveredClusters[SourceIndex].CurrentMarkerGUID.Invalidate();
+    SourceCluster.Nodes.Reset();
 }
 
 void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
@@ -288,7 +305,7 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
 
     DiscoveredNodeIndices.Add(NodeIndex);
 
-    if (!Config.bClusterNodes)
+    if (!FResourceNodeMarker_ConfigStruct::IsClusteringEnabled(Config))
     {
         FResourceNodeCluster NewCluster;
         NewCluster.ResourceName = NewNode.ResourceName;
@@ -312,7 +329,7 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
         return;
     }
 
-    FIntVector Cell = RNM_NodeScanner::GetGridCell(NewNode.Location);
+    FIntVector Cell = RNM_NodeScanner::GetGridCell(NewNode.Location, GridCellSizeCm);
     TArray<int32> CandidateIndices = RNM_NodeScanner::GetNeighborCellIndices(*SpatialGrid, Cell);
 
     TSet<int32> NeighborClusterIndices;
@@ -324,7 +341,7 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
         const FResourceNodeInfo& Candidate = (*ResourceNodes)[CandidateIndex];
 
         if (Candidate.ResourceName != NewNode.ResourceName) continue;
-        if (FVector::DistSquared(NewNode.Location, Candidate.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
+        if (FVector::DistSquared(NewNode.Location, Candidate.Location) > ClusterRadiusSq) continue;
         if (FMath::Abs(NewNode.Location.Z - Candidate.Location.Z) > ClusterHeightTolerance) continue;
 
         if (const int32* ClusterIdx = NodeToClusterMap.Find(CandidateIndex))
@@ -382,7 +399,7 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
         NodeToClusterMap.Add(NodeIndex, TargetClusterIndex);
 
         for (int32 i = 1; i < ClusterIndices.Num(); i++)
-            MergeClusters(TargetClusterIndex, ClusterIndices[i]);
+            MergeClusters(World, TargetClusterIndex, ClusterIndices[i]);
 
         DiscoveredClusters[TargetClusterIndex].RecalculateCenter();
         DiscoveredClusters[TargetClusterIndex].RecalculateDominantPurity();
@@ -466,6 +483,8 @@ void URNM_ClusterManager::OnExtractorPlaced(UWorld* World, const FVector& NodeLo
         {
             return FVector::DistSquared(Node.Location, NodeLocation) <= RNM_MapMarkerService::MARKER_LOCATION_TOLERANCE_SQ;
         });
+
+    NodeToClusterMap.Remove(FoundNodeIndex);
 
     // If cluster still has nodes recreate marker
     if (Cluster.Nodes.Num() > 0)

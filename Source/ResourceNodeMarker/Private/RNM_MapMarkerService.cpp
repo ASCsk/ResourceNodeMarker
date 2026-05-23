@@ -63,6 +63,15 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     default:        Marker.Color = FLinearColor::White; break;
     }
 
+    if (!MapManager->CanAddNewMapMarker())
+    {
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM_MapMarkerService: Map marker limit reached (%d), skipping marker for %s"),
+            MapManager->GetMaxNumMapMarkers(),
+            *Cluster.ResourceName.ToString());
+        return false;
+    }
+
     FMapMarker CreatedMarker;
     bool bSuccess = MapManager->AddNewMapMarker(Marker, CreatedMarker);
 

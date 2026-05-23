@@ -32,22 +32,26 @@ void RNM_NodeScanner::ScanNodes(UWorld* World, TArray<FResourceNodeInfo>& OutNod
         TEXT("RNM_NodeScanner: Found %d extractable unoccupied nodes"), OutNodes.Num());
 }
 
-FIntVector RNM_NodeScanner::GetGridCell(const FVector& Location)
+FIntVector RNM_NodeScanner::GetGridCell(const FVector& Location, const float CellSizeCm)
 {
+    const float SafeCellSize = FMath::Max(CellSizeCm, 1.0f);
     return FIntVector(
-        FMath::FloorToInt(Location.X / CLUSTER_RADIUS),
-        FMath::FloorToInt(Location.Y / CLUSTER_RADIUS),
+        FMath::FloorToInt(Location.X / SafeCellSize),
+        FMath::FloorToInt(Location.Y / SafeCellSize),
         0 // 2D grid, Z handled separately via distance check
     );
 }
 
-void RNM_NodeScanner::BuildSpatialGrid(const TArray<FResourceNodeInfo>& Nodes, TMap<FIntVector, TArray<int32>>& OutGrid)
+void RNM_NodeScanner::BuildSpatialGrid(
+    const TArray<FResourceNodeInfo>& Nodes,
+    TMap<FIntVector, TArray<int32>>& OutGrid,
+    const float CellSizeCm)
 {
     OutGrid.Reset();
 
     for (int32 i = 0; i < Nodes.Num(); i++)
     {
-        FIntVector Cell = GetGridCell(Nodes[i].Location);
+        FIntVector Cell = GetGridCell(Nodes[i].Location, CellSizeCm);
         OutGrid.FindOrAdd(Cell).Add(i);
     }
 

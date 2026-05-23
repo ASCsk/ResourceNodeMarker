@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "RNM_ResourceNodeInfo.h"
 #include "RNM_ResourceVisuals.h"
+#include "RNM_NodeScanner.h"
 #include "ResourceNodeMarker_ConfigStruct.h"
 #include "FGMapManager.h"
 #include "RNM_ClusterManager.generated.h"
@@ -59,12 +60,13 @@ public:
      void OnExtractorPlaced(UWorld* World, const FVector& NodeLocation);
 
 private:
-    void MergeClusters(int32 TargetIndex, int32 SourceIndex);
+    void MergeClusters(UWorld* World, int32 TargetIndex, int32 SourceIndex);
     void ApplySoloClusteringLayoutIfNeeded();
     int32 FindResourceNodeIndex(const FResourceNodeInfo& Info) const;
 
     float ClusterRadiusSq = 0.0f;
     float ClusterHeightTolerance = 0.0f;
+    float GridCellSizeCm = RNM_NodeScanner::DEFAULT_CLUSTER_RADIUS_CM;
 
 private:
     // References to subsystem-owned data
