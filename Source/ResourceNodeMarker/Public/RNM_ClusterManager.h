@@ -50,8 +50,6 @@ public:
     /** Returns true if the node at the given index has already been discovered. */
     bool IsNodeDiscovered(int32 NodeIndex) const;
 
-    void MarkNodeDiscovered(int32 NodeIndex);
-
     /**
      * Called when an extractor is placed on a node.
      * Marks node as discovered, removes it from its cluster,

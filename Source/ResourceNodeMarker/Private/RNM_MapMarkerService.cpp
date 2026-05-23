@@ -16,8 +16,18 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     AFGMapManager* MapManager = AFGMapManager::Get(World);
     if (!MapManager) return false;
 
+    const bool bIsUpdate = Cluster.CurrentMarkerGUID.IsValid();
+    if (!bIsUpdate && !MapManager->CanAddNewMapMarker())
+    {
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM_MapMarkerService: Map marker limit reached (%d), skipping marker for %s"),
+            MapManager->GetMaxNumMapMarkers(),
+            *Cluster.ResourceName.ToString());
+        return false;
+    }
+
     // Delete existing marker if this cluster already has one
-    if (Cluster.CurrentMarkerGUID.IsValid())
+    if (bIsUpdate)
     {
         MapManager->Authority_RemoveMapMarkerByID(Cluster.CurrentMarkerGUID);
         Cluster.CurrentMarkerGUID.Invalidate();
@@ -61,15 +71,6 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     case RP_Normal: Marker.Color = Visual.NormalColor; break;
     case RP_Inpure: Marker.Color = Visual.ImpureColor; break;
     default:        Marker.Color = FLinearColor::White; break;
-    }
-
-    if (!MapManager->CanAddNewMapMarker())
-    {
-        UE_LOG(LogResourceNodeMarker, Warning,
-            TEXT("RNM_MapMarkerService: Map marker limit reached (%d), skipping marker for %s"),
-            MapManager->GetMaxNumMapMarkers(),
-            *Cluster.ResourceName.ToString());
-        return false;
     }
 
     FMapMarker CreatedMarker;

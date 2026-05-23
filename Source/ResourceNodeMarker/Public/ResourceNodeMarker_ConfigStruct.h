@@ -2,7 +2,6 @@
 #include "CoreMinimal.h"
 #include "Configuration/ConfigManager.h"
 #include "Engine/Engine.h"
-#include "ResourceNodeMarker.h"
 #include "ResourceNodeMarker_ConfigStruct.generated.h"
 
 /* Struct generated from Mod Configuration Asset '/ResourceNodeMarker/ResourceNodeMarker_Config' */
@@ -28,7 +27,7 @@ public:
     int32 CompassViewDistance = 2; // 2 = Mid
 
     UPROPERTY(BlueprintReadWrite)
-    int32 ExtractorMarkerBehavior = 0; // 0 = Keep, 1 = Remove marker when extractor placed
+    int32 ExtractorMarkerBehavior = 0; // 0 = Keep, 1 = Remove; legacy 2 (Highlight) normalized to 1 on load
 
     /**
      * When false: map markers use stock stamps only — rock for solid resources, fluid/drop stamp for liquids and gases.
@@ -67,37 +66,9 @@ public:
         return Config.bClusterNodes;
     }
 
-    /* Retrieves active configuration value and returns object of this struct containing it */
-    static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext) {
-        FResourceNodeMarker_ConfigStruct ConfigStruct{};
-        FConfigId ConfigId{"ResourceNodeMarker", ""};
-        const UWorld* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::ReturnNull);
-        if (!World)
-        {
-            UE_LOG(LogResourceNodeMarker, Warning,
-                TEXT("RNM: GetActiveConfig called without a valid world; using default config"));
-            return ConfigStruct;
-        }
+    /** Maps legacy config values after load (e.g. Highlight → Remove). */
+    static void NormalizeLegacyValues(FResourceNodeMarker_ConfigStruct& Config);
 
-        UGameInstance* GameInstance = World->GetGameInstance();
-        if (!GameInstance)
-        {
-            UE_LOG(LogResourceNodeMarker, Warning,
-                TEXT("RNM: GetActiveConfig: no GameInstance; using default config"));
-            return ConfigStruct;
-        }
-
-        UConfigManager* ConfigManager = GameInstance->GetSubsystem<UConfigManager>();
-        if (!ConfigManager)
-        {
-            UE_LOG(LogResourceNodeMarker, Warning,
-                TEXT("RNM: GetActiveConfig: UConfigManager not found; using default config"));
-            return ConfigStruct;
-        }
-
-        ConfigManager->FillConfigurationStruct(ConfigId, FDynamicStructInfo{
-            FResourceNodeMarker_ConfigStruct::StaticStruct(), &ConfigStruct});
-        return ConfigStruct;
-    }
+    static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext);
 };
 

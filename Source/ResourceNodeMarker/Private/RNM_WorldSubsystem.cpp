@@ -79,6 +79,7 @@ void URNM_WorldSubsystem::InitializeConfig()
 void URNM_WorldSubsystem::ScanAllNodes()
 {
     UWorld* World = GetWorld();
+    if (!World || !ClusterManager || !ResourceVisuals) return;
 
     RNM_NodeScanner::ScanNodes(World, ResourceNodes);
     const float GridCellSizeCm = FResourceNodeMarker_ConfigStruct::GetClusterRadiusCm(ConfigData);
@@ -155,7 +156,7 @@ void URNM_WorldSubsystem::BindBuildableDelegate()
 
 void URNM_WorldSubsystem::OnBuildableConstructed(AFGBuildable* Buildable)
 {
-    if (!Buildable) return;
+    if (!Buildable || !bConfigLoaded || !ClusterManager) return;
 
     AFGBuildableResourceExtractor* Extractor = Cast<AFGBuildableResourceExtractor>(Buildable);
     if (!Extractor) return;
