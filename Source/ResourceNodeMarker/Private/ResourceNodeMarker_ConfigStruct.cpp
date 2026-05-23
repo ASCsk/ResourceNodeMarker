@@ -37,6 +37,14 @@ FResourceNodeMarker_ConfigStruct FResourceNodeMarker_ConfigStruct::GetActiveConf
         return ConfigStruct;
     }
 
+    if (!ConfigManager->GetConfigurationById(ConfigId))
+    {
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM: GetActiveConfig: config '%s' not registered; using default config"),
+            *ConfigId.ModReference);
+        return ConfigStruct;
+    }
+
     ConfigManager->FillConfigurationStruct(ConfigId, FDynamicStructInfo{
         FResourceNodeMarker_ConfigStruct::StaticStruct(), &ConfigStruct});
     NormalizeLegacyValues(ConfigStruct);

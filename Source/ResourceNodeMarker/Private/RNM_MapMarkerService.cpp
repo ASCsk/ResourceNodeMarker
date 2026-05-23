@@ -17,6 +17,7 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     if (!MapManager) return false;
 
     const bool bIsUpdate = Cluster.CurrentMarkerGUID.IsValid();
+    const FGuid PreviousMarkerGUID = Cluster.CurrentMarkerGUID;
     if (!bIsUpdate && !MapManager->CanAddNewMapMarker())
     {
         UE_LOG(LogResourceNodeMarker, Warning,
@@ -24,16 +25,6 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
             MapManager->GetMaxNumMapMarkers(),
             *Cluster.ResourceName.ToString());
         return false;
-    }
-
-    // Delete existing marker if this cluster already has one
-    if (bIsUpdate)
-    {
-        MapManager->Authority_RemoveMapMarkerByID(Cluster.CurrentMarkerGUID);
-        Cluster.CurrentMarkerGUID.Invalidate();
-        UE_LOG(LogResourceNodeMarker, Log,
-            TEXT("RNM_MapMarkerService: Removed existing cluster marker for %s"),
-            *Cluster.ResourceName.ToString());
     }
 
     TSubclassOf<UFGResourceDescriptor> ResClass = nullptr;
@@ -85,6 +76,14 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     }
 
     OutGUID = CreatedMarker.MarkerGUID;
+
+    if (PreviousMarkerGUID.IsValid() && PreviousMarkerGUID != OutGUID)
+    {
+        MapManager->Authority_RemoveMapMarkerByID(PreviousMarkerGUID);
+        UE_LOG(LogResourceNodeMarker, Log,
+            TEXT("RNM_MapMarkerService: Removed existing cluster marker for %s"),
+            *Cluster.ResourceName.ToString());
+    }
 
     UE_LOG(LogResourceNodeMarker, Log,
         TEXT("RNM_MapMarkerService: Cluster marker created for %s (%d nodes)"),

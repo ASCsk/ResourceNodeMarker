@@ -12,21 +12,41 @@ int32 PickMergeTargetClusterIndex(
     const TArray<FResourceNodeCluster>& Clusters,
     const TArray<int32>& CandidateIndices)
 {
-    int32 BestIndex = CandidateIndices[0];
-    int32 BestScore = TNumericLimits<int32>::Min();
+    check(CandidateIndices.Num() > 0);
 
-    for (const int32 Idx : CandidateIndices)
+    int32 BestIndex = CandidateIndices[0];
+    const FResourceNodeCluster* BestCluster = Clusters.IsValidIndex(BestIndex)
+        ? &Clusters[BestIndex] : nullptr;
+
+    for (int32 i = 1; i < CandidateIndices.Num(); ++i)
     {
+        const int32 Idx = CandidateIndices[i];
         if (!Clusters.IsValidIndex(Idx)) continue;
 
-        int32 Score = Clusters[Idx].Nodes.Num();
-        if (Clusters[Idx].CurrentMarkerGUID.IsValid())
-            Score += 10000;
-
-        if (Score > BestScore)
+        const FResourceNodeCluster& Candidate = Clusters[Idx];
+        if (!BestCluster)
         {
-            BestScore = Score;
             BestIndex = Idx;
+            BestCluster = &Candidate;
+            continue;
+        }
+
+        const bool bCandidateHasMarker = Candidate.CurrentMarkerGUID.IsValid();
+        const bool bBestHasMarker = BestCluster->CurrentMarkerGUID.IsValid();
+        if (bCandidateHasMarker != bBestHasMarker)
+        {
+            if (bCandidateHasMarker)
+            {
+                BestIndex = Idx;
+                BestCluster = &Candidate;
+            }
+            continue;
+        }
+
+        if (Candidate.Nodes.Num() > BestCluster->Nodes.Num())
+        {
+            BestIndex = Idx;
+            BestCluster = &Candidate;
         }
     }
 
@@ -297,20 +317,47 @@ void URNM_ClusterManager::ApplySoloClusteringLayoutIfNeeded()
     NodeToClusterMap = MoveTemp(NewNodeToCluster);
 }
 
-void URNM_ClusterManager::MergeClusters(UWorld* World, int32 TargetIndex, int32 SourceIndex)
+bool URNM_ClusterManager::TryRemoveClusterMapMarker(UWorld* World, FResourceNodeCluster& Cluster)
 {
+    if (!Cluster.CurrentMarkerGUID.IsValid()) return true;
+
+    if (!World)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM_ClusterManager: Cannot remove cluster marker for %s without a valid world"),
+            *Cluster.ResourceName.ToString());
+        return false;
+    }
+
+    AFGMapManager* MapManager = AFGMapManager::Get(World);
+    if (!MapManager)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM_ClusterManager: Cannot remove cluster marker for %s — AFGMapManager unavailable"),
+            *Cluster.ResourceName.ToString());
+        return false;
+    }
+
+    MapManager->Authority_RemoveMapMarkerByID(Cluster.CurrentMarkerGUID);
+    Cluster.CurrentMarkerGUID.Invalidate();
+    UE_LOG(LogResourceNodeMarker, Log,
+        TEXT("RNM_ClusterManager: Removed cluster marker for %s"),
+        *Cluster.ResourceName.ToString());
+    return true;
+}
+
+bool URNM_ClusterManager::MergeClusters(
+    UWorld* World, int32 TargetIndex, int32 SourceIndex, bool bRemoveSourceMarker)
+{
+    if (!DiscoveredClusters.IsValidIndex(TargetIndex) || !DiscoveredClusters.IsValidIndex(SourceIndex))
+        return false;
+
     FResourceNodeCluster& SourceCluster = DiscoveredClusters[SourceIndex];
 
-    if (SourceCluster.CurrentMarkerGUID.IsValid() && World)
+    if (bRemoveSourceMarker && SourceCluster.CurrentMarkerGUID.IsValid())
     {
-        if (AFGMapManager* MapManager = AFGMapManager::Get(World))
-        {
-            MapManager->Authority_RemoveMapMarkerByID(SourceCluster.CurrentMarkerGUID);
-            SourceCluster.CurrentMarkerGUID.Invalidate();
-            UE_LOG(LogResourceNodeMarker, Log,
-                TEXT("RNM_ClusterManager: Removed merged-away cluster marker for %s"),
-                *SourceCluster.ResourceName.ToString());
-        }
+        if (!TryRemoveClusterMapMarker(World, SourceCluster))
+            return false;
     }
 
     // Remap all nodes from source to target
@@ -323,6 +370,7 @@ void URNM_ClusterManager::MergeClusters(UWorld* World, int32 TargetIndex, int32 
     DiscoveredClusters[TargetIndex].MergeWith(SourceCluster);
 
     SourceCluster.Nodes.Reset();
+    return true;
 }
 
 void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
@@ -438,6 +486,11 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
     }
     else
     {
+        check(NeighborClusterIndices.Num() > 1);
+
+        const TArray<FResourceNodeCluster> ClustersBeforeMerge = DiscoveredClusters;
+        const TMap<int32, int32> NodeToClusterBeforeMerge = NodeToClusterMap;
+
         TArray<int32> ClusterIndices = NeighborClusterIndices.Array();
         const int32 TargetClusterIndex = PickMergeTargetClusterIndex(DiscoveredClusters, ClusterIndices);
 
@@ -446,8 +499,16 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
 
         for (const int32 SourceIndex : ClusterIndices)
         {
-            if (SourceIndex != TargetClusterIndex)
-                MergeClusters(World, TargetClusterIndex, SourceIndex);
+            if (SourceIndex != TargetClusterIndex
+                && !MergeClusters(World, TargetClusterIndex, SourceIndex, /*bRemoveSourceMarker=*/false))
+            {
+                DiscoveredClusters = ClustersBeforeMerge;
+                NodeToClusterMap = NodeToClusterBeforeMerge;
+                UE_LOG(LogResourceNodeMarker, Warning,
+                    TEXT("RNM_ClusterManager: Cluster merge aborted for %s"),
+                    *NewNode.ResourceName.ToString());
+                return;
+            }
         }
 
         DiscoveredClusters[TargetClusterIndex].RecalculateCenter();
@@ -460,6 +521,12 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
             DiscoveredClusters[TargetClusterIndex].CurrentMarkerGUID = NewGUID;
             DiscoveredNodeIndices.Add(NodeIndex);
 
+            for (const int32 SourceIndex : ClusterIndices)
+            {
+                if (SourceIndex != TargetClusterIndex)
+                    TryRemoveClusterMapMarker(World, DiscoveredClusters[SourceIndex]);
+            }
+
             UE_LOG(LogResourceNodeMarker, Log,
                 TEXT("RNM_ClusterManager: Merged %d clusters for %s (%d nodes)"),
                 ClusterIndices.Num(),
@@ -468,10 +535,11 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
         }
         else
         {
+            DiscoveredClusters = ClustersBeforeMerge;
+            NodeToClusterMap = NodeToClusterBeforeMerge;
             UE_LOG(LogResourceNodeMarker, Warning,
-                TEXT("RNM_ClusterManager: Merge succeeded but marker create failed for %s"),
+                TEXT("RNM_ClusterManager: Cluster merge rolled back — marker create failed for %s"),
                 *NewNode.ResourceName.ToString());
-            DiscoveredNodeIndices.Add(NodeIndex);
         }
     }
 }

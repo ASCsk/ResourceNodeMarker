@@ -66,7 +66,7 @@ public:
         return Config.bClusterNodes;
     }
 
-    /** Maps legacy config values after load (e.g. Highlight → Remove). */
+    /** Maps legacy config values after load (e.g. Highlight → Remove). Called by GetActiveConfig. */
     static void NormalizeLegacyValues(FResourceNodeMarker_ConfigStruct& Config);
 
     static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext);

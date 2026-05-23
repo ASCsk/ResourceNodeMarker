@@ -58,7 +58,8 @@ public:
      void OnExtractorPlaced(UWorld* World, const FVector& NodeLocation);
 
 private:
-    void MergeClusters(UWorld* World, int32 TargetIndex, int32 SourceIndex);
+    bool MergeClusters(UWorld* World, int32 TargetIndex, int32 SourceIndex, bool bRemoveSourceMarker = true);
+    bool TryRemoveClusterMapMarker(UWorld* World, FResourceNodeCluster& Cluster);
     void ApplySoloClusteringLayoutIfNeeded();
     int32 FindResourceNodeIndex(const FResourceNodeInfo& Info) const;
 
