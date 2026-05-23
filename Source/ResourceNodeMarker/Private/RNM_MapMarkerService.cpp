@@ -16,14 +16,15 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     AFGMapManager* MapManager = AFGMapManager::Get(World);
     if (!MapManager) return false;
 
-    // Delete existing marker if this cluster already has one
-    if (Cluster.CurrentMarkerGUID.IsValid())
+    const bool bIsUpdate = Cluster.CurrentMarkerGUID.IsValid();
+    const FGuid PreviousMarkerGUID = Cluster.CurrentMarkerGUID;
+    if (!bIsUpdate && !MapManager->CanAddNewMapMarker())
     {
-        MapManager->Authority_RemoveMapMarkerByID(Cluster.CurrentMarkerGUID);
-        Cluster.CurrentMarkerGUID.Invalidate();
-        UE_LOG(LogResourceNodeMarker, Log,
-            TEXT("RNM_MapMarkerService: Removed existing cluster marker for %s"),
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM_MapMarkerService: Map marker limit reached (%d), skipping marker for %s"),
+            MapManager->GetMaxNumMapMarkers(),
             *Cluster.ResourceName.ToString());
+        return false;
     }
 
     TSubclassOf<UFGResourceDescriptor> ResClass = nullptr;
@@ -75,6 +76,15 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     }
 
     OutGUID = CreatedMarker.MarkerGUID;
+
+    // Previous marker removed only after add succeeds; brief overlap stays under the 250 cap.
+    if (PreviousMarkerGUID.IsValid() && PreviousMarkerGUID != OutGUID)
+    {
+        MapManager->Authority_RemoveMapMarkerByID(PreviousMarkerGUID);
+        UE_LOG(LogResourceNodeMarker, Log,
+            TEXT("RNM_MapMarkerService: Removed existing cluster marker for %s"),
+            *Cluster.ResourceName.ToString());
+    }
 
     UE_LOG(LogResourceNodeMarker, Log,
         TEXT("RNM_MapMarkerService: Cluster marker created for %s (%d nodes)"),

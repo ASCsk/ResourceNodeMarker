@@ -37,11 +37,12 @@ int32 GetStampIconIdForOreOrFluid(TSubclassOf<UFGResourceDescriptor> ResClass)
 /** When bUseIcons is true and visuals miss: map descriptor class names to in-game map icon IDs (FIconsPreset). */
 int32 ResolveInGameIconIdFromResourceClass(TSubclassOf<UFGResourceDescriptor> ResClass)
 {
-    if (!ResClass) return 656;
+    FStampPreset Sp;
+    if (!ResClass) return Sp.QuestionMark;
 
     const EResourceForm Form = UFGItemDescriptor::GetForm(ResClass);
     if (Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS)
-        return 657;
+        return Sp.Fluids;
 
     const FString S = ResClass->GetName();
     FIconsPreset Ip;
@@ -57,7 +58,6 @@ int32 ResolveInGameIconIdFromResourceClass(TSubclassOf<UFGResourceDescriptor> Re
     if (S.Contains(TEXT("Caterium"))) return Ip.Caterium;
     if (S.Contains(TEXT("Sam"))) return Ip.Sam;
 
-    FStampPreset Sp;
     return Sp.Rock;
 }
 }

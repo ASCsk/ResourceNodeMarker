@@ -15,7 +15,7 @@ public:
 
     /**
      * Creates or updates a cluster marker.
-     * If the cluster has an existing marker (CurrentMarkerGUID is valid), it will be deleted first.
+     * When updating, adds the new marker first and removes the previous one only on success.
      * @param World - The game world.
      * @param Cluster - The cluster to create a marker for.
      * @param ResourceVisuals - Visual lookup helper.

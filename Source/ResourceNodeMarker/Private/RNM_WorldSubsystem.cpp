@@ -20,14 +20,6 @@ void URNM_WorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
     World->OnWorldBeginPlay.AddUObject(this, &URNM_WorldSubsystem::InitializeConfig);
     World->OnWorldBeginPlay.AddUObject(this, &URNM_WorldSubsystem::BindBuildableDelegate);
 
-    World->GetTimerManager().SetTimer(
-        ProximityTimerHandle,
-        this,
-        &URNM_WorldSubsystem::CheckPlayerProximity,
-        0.25f,
-        true
-    );
-
     ResourceVisuals = NewObject<URNM_ResourceVisuals>(this);
     ClusterManager = NewObject<URNM_ClusterManager>(this);
 }
@@ -60,22 +52,38 @@ void URNM_WorldSubsystem::InitializeConfig()
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Extractor Marker Behavior: %d (%s)"),
         ConfigData.ExtractorMarkerBehavior,
         ConfigData.ExtractorMarkerBehavior == 0 ? TEXT("Keep") :
-        ConfigData.ExtractorMarkerBehavior == 1 ? TEXT("Remove") :
-        ConfigData.ExtractorMarkerBehavior == 2 ? TEXT("Highlight") : TEXT("Invalid"));
+        ConfigData.ExtractorMarkerBehavior == 1 ? TEXT("Remove") : TEXT("Invalid"));
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Icon Settings ---"));
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Use Icons: %s"), ConfigData.bUseIcons ? TEXT("YES") : TEXT("NO"));
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Clustering ---"));
-    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Cluster nodes: %s"), ConfigData.bClusterNodes ? TEXT("YES (shared markers)") : TEXT("NO (one marker per node)"));
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Cluster Radius: %.0fm"), ConfigData.ClusterRadius);
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Cluster Height Tolerance: %.0fm"), ConfigData.ClusterHeightTolerance);
+    UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Cluster nodes: %s"),
+        FResourceNodeMarker_ConfigStruct::IsClusteringEnabled(ConfigData)
+            ? TEXT("YES (shared markers)") : TEXT("NO (one marker per node)"));
 
     ScanAllNodes();
+
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().SetTimer(
+            ProximityTimerHandle,
+            this,
+            &URNM_WorldSubsystem::CheckPlayerProximity,
+            0.25f,
+            true
+        );
+    }
 }
 
 void URNM_WorldSubsystem::ScanAllNodes()
 {
     UWorld* World = GetWorld();
+    if (!World || !ClusterManager || !ResourceVisuals) return;
 
     RNM_NodeScanner::ScanNodes(World, ResourceNodes);
-    RNM_NodeScanner::BuildSpatialGrid(ResourceNodes, SpatialGrid);
+    const float GridCellSizeCm = FResourceNodeMarker_ConfigStruct::GetClusterRadiusCm(ConfigData);
+    RNM_NodeScanner::BuildSpatialGrid(ResourceNodes, SpatialGrid, GridCellSizeCm);
 
     ClusterManager->Initialize(ResourceNodes, SpatialGrid, ResourceVisuals, ConfigData);
     ClusterManager->RebuildClustersFromExistingMarkers(World);
@@ -89,6 +97,8 @@ void URNM_WorldSubsystem::ScanAllNodes()
 
 void URNM_WorldSubsystem::CheckPlayerProximity()
 {
+    if (!bConfigLoaded || !ClusterManager) return;
+
     UWorld* World = GetWorld();
     if (!World) return;
 
@@ -106,17 +116,16 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
             continue;
 
         const FResourceNodeInfo& NodeInfo = ResourceNodes[i];
-        if (!IsValid(NodeInfo.NodeActor)) continue;
+        AFGResourceNode* Node = NodeInfo.NodeActor;
+        if (!IsValid(Node)) continue;
+        if (Node->IsOccupied()) continue;
 
-        if (bConfigLoaded)
-        {
-            const bool bPurityEnabled =
-                (NodeInfo.Purity == RP_Pure && ConfigData.bMarkPure) ||
-                (NodeInfo.Purity == RP_Normal && ConfigData.bMarkNormal) ||
-                (NodeInfo.Purity == RP_Inpure && ConfigData.bMarkImpure);
+        const bool bPurityEnabled =
+            (NodeInfo.Purity == RP_Pure && ConfigData.bMarkPure) ||
+            (NodeInfo.Purity == RP_Normal && ConfigData.bMarkNormal) ||
+            (NodeInfo.Purity == RP_Inpure && ConfigData.bMarkImpure);
 
-            if (!bPurityEnabled) continue;
-        }
+        if (!bPurityEnabled) continue;
 
         if (FVector::DistSquared(PlayerLocation, NodeInfo.Location) <= PlayerProximityThresholdSq)
         {
@@ -147,12 +156,12 @@ void URNM_WorldSubsystem::BindBuildableDelegate()
 
 void URNM_WorldSubsystem::OnBuildableConstructed(AFGBuildable* Buildable)
 {
-    if (!Buildable) return;
+    if (!Buildable || !bConfigLoaded || !ClusterManager) return;
 
     AFGBuildableResourceExtractor* Extractor = Cast<AFGBuildableResourceExtractor>(Buildable);
     if (!Extractor) return;
 
-    if (ConfigData.ExtractorMarkerBehavior == 0) return;
+    if (ConfigData.ExtractorMarkerBehavior != 1) return;
 
     TScriptInterface<IFGExtractableResourceInterface> ExtractableResource = Extractor->GetExtractableResource();
     if (!ExtractableResource) return;

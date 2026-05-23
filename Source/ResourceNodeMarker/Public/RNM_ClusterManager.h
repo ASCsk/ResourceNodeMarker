@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "RNM_ResourceNodeInfo.h"
 #include "RNM_ResourceVisuals.h"
+#include "RNM_NodeScanner.h"
 #include "ResourceNodeMarker_ConfigStruct.h"
 #include "FGMapManager.h"
 #include "RNM_ClusterManager.generated.h"
@@ -49,8 +50,6 @@ public:
     /** Returns true if the node at the given index has already been discovered. */
     bool IsNodeDiscovered(int32 NodeIndex) const;
 
-    void MarkNodeDiscovered(int32 NodeIndex);
-
     /**
      * Called when an extractor is placed on a node.
      * Marks node as discovered, removes it from its cluster,
@@ -59,12 +58,14 @@ public:
      void OnExtractorPlaced(UWorld* World, const FVector& NodeLocation);
 
 private:
-    void MergeClusters(int32 TargetIndex, int32 SourceIndex);
+    bool MergeClusters(UWorld* World, int32 TargetIndex, int32 SourceIndex, bool bRemoveSourceMarker = true);
+    bool TryRemoveClusterMapMarker(UWorld* World, FResourceNodeCluster& Cluster);
     void ApplySoloClusteringLayoutIfNeeded();
     int32 FindResourceNodeIndex(const FResourceNodeInfo& Info) const;
 
     float ClusterRadiusSq = 0.0f;
     float ClusterHeightTolerance = 0.0f;
+    float GridCellSizeCm = RNM_NodeScanner::DEFAULT_CLUSTER_RADIUS_CM;
 
 private:
     // References to subsystem-owned data

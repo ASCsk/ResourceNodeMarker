@@ -27,7 +27,7 @@ public:
     int32 CompassViewDistance = 2; // 2 = Mid
 
     UPROPERTY(BlueprintReadWrite)
-    int32 ExtractorMarkerBehavior = 0; // 0 = Keep, 1 = Remove
+    int32 ExtractorMarkerBehavior = 0; // 0 = Keep, 1 = Remove; legacy 2 (Highlight) normalized to 1 on load
 
     /**
      * When false: map markers use stock stamps only — rock for solid resources, fluid/drop stamp for liquids and gases.
@@ -43,21 +43,32 @@ public:
     float ClusterHeightTolerance = 100.0f; // meters, converted to cm in code
 
     /**
-     * When true (default), nearby nodes of the same resource share one map marker (clustering).
+     * When true (default), nearby nodes of the same resource share one map marker.
      * When false, each node gets its own marker.
+     * UE config: BP_ConfigPropertyBool checkbox (same pattern as bMarkPure / bUseIcons).
+     * SML reads config once at world begin play — reload required to apply changes.
      */
     UPROPERTY(BlueprintReadWrite)
     bool bClusterNodes = true;
 
-    /* Retrieves active configuration value and returns object of this struct containing it */
-    static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext) {
-        FResourceNodeMarker_ConfigStruct ConfigStruct{};
-        FConfigId ConfigId{"ResourceNodeMarker", ""};
-        if (const UWorld* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::ReturnNull)) {
-            UConfigManager* ConfigManager = World->GetGameInstance()->GetSubsystem<UConfigManager>();
-            ConfigManager->FillConfigurationStruct(ConfigId, FDynamicStructInfo{FResourceNodeMarker_ConfigStruct::StaticStruct(), &ConfigStruct});
-        }
-        return ConfigStruct;
+    static float GetClusterRadiusCm(const FResourceNodeMarker_ConfigStruct& Config)
+    {
+        return FMath::Max(Config.ClusterRadius * 100.0f, 1.0f);
     }
+
+    static float GetClusterHeightToleranceCm(const FResourceNodeMarker_ConfigStruct& Config)
+    {
+        return FMath::Max(Config.ClusterHeightTolerance * 100.0f, 0.0f);
+    }
+
+    static bool IsClusteringEnabled(const FResourceNodeMarker_ConfigStruct& Config)
+    {
+        return Config.bClusterNodes;
+    }
+
+    /** Maps legacy config values after load (e.g. Highlight → Remove). Called by GetActiveConfig. */
+    static void NormalizeLegacyValues(FResourceNodeMarker_ConfigStruct& Config);
+
+    static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext);
 };
 
