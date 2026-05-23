@@ -499,16 +499,10 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
 
         for (const int32 SourceIndex : ClusterIndices)
         {
-            if (SourceIndex != TargetClusterIndex
-                && !MergeClusters(World, TargetClusterIndex, SourceIndex, /*bRemoveSourceMarker=*/false))
-            {
-                DiscoveredClusters = ClustersBeforeMerge;
-                NodeToClusterMap = NodeToClusterBeforeMerge;
-                UE_LOG(LogResourceNodeMarker, Warning,
-                    TEXT("RNM_ClusterManager: Cluster merge aborted for %s"),
-                    *NewNode.ResourceName.ToString());
-                return;
-            }
+            if (SourceIndex == TargetClusterIndex) continue;
+            check(DiscoveredClusters.IsValidIndex(TargetClusterIndex));
+            check(DiscoveredClusters.IsValidIndex(SourceIndex));
+            MergeClusters(World, TargetClusterIndex, SourceIndex, /*bRemoveSourceMarker=*/false);
         }
 
         DiscoveredClusters[TargetClusterIndex].RecalculateCenter();
@@ -519,19 +513,53 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
             World, DiscoveredClusters[TargetClusterIndex], ResourceVisuals, Config, NewGUID))
         {
             DiscoveredClusters[TargetClusterIndex].CurrentMarkerGUID = NewGUID;
-            DiscoveredNodeIndices.Add(NodeIndex);
 
+            bool bAllSourceMarkersRemoved = true;
             for (const int32 SourceIndex : ClusterIndices)
             {
-                if (SourceIndex != TargetClusterIndex)
-                    TryRemoveClusterMapMarker(World, DiscoveredClusters[SourceIndex]);
+                if (SourceIndex != TargetClusterIndex
+                    && !TryRemoveClusterMapMarker(World, DiscoveredClusters[SourceIndex]))
+                {
+                    bAllSourceMarkersRemoved = false;
+                    break;
+                }
             }
 
-            UE_LOG(LogResourceNodeMarker, Log,
-                TEXT("RNM_ClusterManager: Merged %d clusters for %s (%d nodes)"),
-                ClusterIndices.Num(),
-                *NewNode.ResourceName.ToString(),
-                DiscoveredClusters[TargetClusterIndex].Nodes.Num());
+            if (bAllSourceMarkersRemoved)
+            {
+                DiscoveredNodeIndices.Add(NodeIndex);
+
+                UE_LOG(LogResourceNodeMarker, Log,
+                    TEXT("RNM_ClusterManager: Merged %d clusters for %s (%d nodes)"),
+                    ClusterIndices.Num(),
+                    *NewNode.ResourceName.ToString(),
+                    DiscoveredClusters[TargetClusterIndex].Nodes.Num());
+            }
+            else
+            {
+                if (AFGMapManager* MapManager = AFGMapManager::Get(World))
+                    MapManager->Authority_RemoveMapMarkerByID(NewGUID);
+
+                DiscoveredClusters = ClustersBeforeMerge;
+                NodeToClusterMap = NodeToClusterBeforeMerge;
+
+                for (const int32 Idx : ClusterIndices)
+                {
+                    FResourceNodeCluster& C = DiscoveredClusters[Idx];
+                    if (C.Nodes.Num() == 0) continue;
+
+                    FGuid RestoredGUID;
+                    if (RNM_MapMarkerService::CreateOrUpdateClusterMarker(
+                        World, C, ResourceVisuals, Config, RestoredGUID))
+                    {
+                        C.CurrentMarkerGUID = RestoredGUID;
+                    }
+                }
+
+                UE_LOG(LogResourceNodeMarker, Warning,
+                    TEXT("RNM_ClusterManager: Cluster merge rolled back — failed to remove source marker for %s"),
+                    *NewNode.ResourceName.ToString());
+            }
         }
         else
         {
@@ -582,52 +610,67 @@ void URNM_ClusterManager::OnExtractorPlaced(UWorld* World, const FVector& NodeLo
 
     int32 ClusterIndex = *ClusterIdxPtr;
     FResourceNodeCluster& Cluster = DiscoveredClusters[ClusterIndex];
+    const FResourceNodeCluster ClusterBefore = Cluster;
 
-    // Delete existing cluster marker
-    if (Cluster.CurrentMarkerGUID.IsValid())
+    const auto NodeMatchesLocation = [&](const FResourceNodeInfo& Node)
     {
-        AFGMapManager* MapManager = AFGMapManager::Get(World);
-        if (MapManager)
-        {
-            MapManager->Authority_RemoveMapMarkerByID(Cluster.CurrentMarkerGUID);
-            Cluster.CurrentMarkerGUID.Invalidate();
+        return FVector::DistSquared(Node.Location, NodeLocation)
+            <= RNM_MapMarkerService::MARKER_LOCATION_TOLERANCE_SQ;
+    };
 
-            UE_LOG(LogResourceNodeMarker, Log,
-                TEXT("RNM_ClusterManager: Removed cluster marker for %s due to extractor placement"),
-                *Cluster.ResourceName.ToString());
+    bool bRemovedNode = false;
+    for (const FResourceNodeInfo& Node : Cluster.Nodes)
+    {
+        if (NodeMatchesLocation(Node))
+        {
+            bRemovedNode = true;
+            break;
         }
     }
+    if (!bRemovedNode) return;
 
-    // Remove the tapped node from the cluster
-    Cluster.Nodes.RemoveAll([&](const FResourceNodeInfo& Node)
-        {
-            return FVector::DistSquared(Node.Location, NodeLocation) <= RNM_MapMarkerService::MARKER_LOCATION_TOLERANCE_SQ;
-        });
-
+    Cluster.Nodes.RemoveAll(NodeMatchesLocation);
     NodeToClusterMap.Remove(FoundNodeIndex);
 
-    // If cluster still has nodes recreate marker
-    if (Cluster.Nodes.Num() > 0)
+    if (Cluster.Nodes.Num() == 0)
     {
-        Cluster.RecalculateCenter();
-        Cluster.RecalculateDominantPurity();
-
-        FGuid NewGUID;
-        if (RNM_MapMarkerService::CreateOrUpdateClusterMarker(
-            World, Cluster, ResourceVisuals, Config, NewGUID))
+        if (TryRemoveClusterMapMarker(World, Cluster))
         {
-            Cluster.CurrentMarkerGUID = NewGUID;
-
             UE_LOG(LogResourceNodeMarker, Log,
-                TEXT("RNM_ClusterManager: Recreated cluster marker for %s (%d nodes remaining)"),
-                *Cluster.ResourceName.ToString(),
-                Cluster.Nodes.Num());
+                TEXT("RNM_ClusterManager: Cluster for %s is now empty, marker deleted"),
+                *Cluster.ResourceName.ToString());
         }
+        else
+        {
+            Cluster = ClusterBefore;
+            NodeToClusterMap.Add(FoundNodeIndex, ClusterIndex);
+            UE_LOG(LogResourceNodeMarker, Warning,
+                TEXT("RNM_ClusterManager: Failed to remove marker for empty cluster %s — node kept in cluster"),
+                *Cluster.ResourceName.ToString());
+        }
+        return;
+    }
+
+    Cluster.RecalculateCenter();
+    Cluster.RecalculateDominantPurity();
+
+    FGuid NewGUID;
+    if (RNM_MapMarkerService::CreateOrUpdateClusterMarker(
+        World, Cluster, ResourceVisuals, Config, NewGUID))
+    {
+        Cluster.CurrentMarkerGUID = NewGUID;
+
+        UE_LOG(LogResourceNodeMarker, Log,
+            TEXT("RNM_ClusterManager: Recreated cluster marker for %s (%d nodes remaining)"),
+            *Cluster.ResourceName.ToString(),
+            Cluster.Nodes.Num());
     }
     else
     {
-        UE_LOG(LogResourceNodeMarker, Log,
-            TEXT("RNM_ClusterManager: Cluster for %s is now empty, marker deleted"),
+        Cluster = ClusterBefore;
+        NodeToClusterMap.Add(FoundNodeIndex, ClusterIndex);
+        UE_LOG(LogResourceNodeMarker, Warning,
+            TEXT("RNM_ClusterManager: Failed to recreate cluster marker for %s — node kept in cluster"),
             *Cluster.ResourceName.ToString());
     }
 }

@@ -77,6 +77,7 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
 
     OutGUID = CreatedMarker.MarkerGUID;
 
+    // Previous marker removed only after add succeeds; brief overlap stays under the 250 cap.
     if (PreviousMarkerGUID.IsValid() && PreviousMarkerGUID != OutGUID)
     {
         MapManager->Authority_RemoveMapMarkerByID(PreviousMarkerGUID);
