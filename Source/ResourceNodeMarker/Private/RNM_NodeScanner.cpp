@@ -1,5 +1,6 @@
 #include "RNM_NodeScanner.h"
 #include "ResourceNodeMarker.h"
+#include "FGResourceDescriptor.h"
 
 void RNM_NodeScanner::ScanNodes(UWorld* World, TArray<FResourceNodeInfo>& OutNodes)
 {
@@ -14,10 +15,14 @@ void RNM_NodeScanner::ScanNodes(UWorld* World, TArray<FResourceNodeInfo>& OutNod
         if (!Node->CanPlaceResourceExtractor()) continue;
         if (Node->IsOccupied()) continue;
 
+        TSubclassOf<UFGResourceDescriptor> ResClass = Node->GetResourceClass();
+        if (!ResClass) continue;
+
         FResourceNodeInfo Info;
         Info.NodeActor = Node;
         Info.Location = Node->GetActorLocation();
-        Info.ResourceName = FName(*Node->GetResourceName().ToString());
+        Info.ResourceName = ResClass->GetFName();
+        Info.ResourceDescriptorClass = ResClass;
         Info.Purity = Node->GetResoucePurity();
 
         OutNodes.Add(Info);

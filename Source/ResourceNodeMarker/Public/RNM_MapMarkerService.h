@@ -32,9 +32,20 @@ public:
 
     static ECompassViewDistance ParseCompassViewDistance(int32 Value);
 
+    /** RNM markers (legacy RNM::Ore / RNM::Fluid or v2 RNM::Ore#ClassFName). */
+    static bool IsRNMMapMarkerCategory(const FString& Category);
+
+    /** Legacy: category held RNM::Ore#ClassFName. Still parsed for old saves. */
+    static bool TryParseClassIdFromCategory(const FString& Category, FName& OutClassFName);
+
+    /** Legacy markers only: optional embedded id in Name suffix " #RNM:ClassName" (new markers omit this). */
+    static bool TryParseClassIdFromMarkerName(const FString& MarkerName, FName& OutClassFName);
+
+    /** Short UI category only: RNM::Ore or RNM::Fluid */
+    static FString BuildCategoryName(bool bIsFluid);
+
     static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
 
 private:
     static FString BuildClusterMarkerName(const FResourceNodeCluster& Cluster);
-    static FString GetPurityString(EResourcePurity Purity);
 };

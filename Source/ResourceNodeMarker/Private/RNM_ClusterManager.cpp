@@ -2,7 +2,9 @@
 #include "RNM_NodeScanner.h"
 #include "RNM_MapMarkerService.h"
 #include "ResourceNodeMarker.h"
+#include "FGItemDescriptor.h"
 #include "FGMapManager.h"
+#include "FGResourceDescriptor.h"
 
 void URNM_ClusterManager::Initialize(
     const TArray<FResourceNodeInfo>& InResourceNodes,
@@ -34,26 +36,75 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
 
     for (const FMapMarker& Marker : ExistingMarkers)
     {
-        if (Marker.CategoryName != TEXT("RNM::Ore") &&
-            Marker.CategoryName != TEXT("RNM::Fluid"))
+        if (!RNM_MapMarkerService::IsRNMMapMarkerCategory(Marker.CategoryName))
             continue;
+
+        FName StableClassId;
+        bool bHasStableId = RNM_MapMarkerService::TryParseClassIdFromCategory(
+            Marker.CategoryName, StableClassId);
+        if (!bHasStableId)
+            bHasStableId = RNM_MapMarkerService::TryParseClassIdFromMarkerName(Marker.Name, StableClassId);
 
         FIntVector Cell = RNM_NodeScanner::GetGridCell(Marker.Location);
         TArray<int32> CandidateIndices = RNM_NodeScanner::GetNeighborCellIndices(*SpatialGrid, Cell);
 
+        FString NameForLegacy = Marker.Name;
+        {
+            static const FString RnmTag(TEXT(" #RNM:"));
+            const int32 TagIdx = NameForLegacy.Find(RnmTag);
+            if (TagIdx != INDEX_NONE)
+                NameForLegacy = NameForLegacy.Left(TagIdx);
+        }
+        const int32 ParenIdx = NameForLegacy.Find(TEXT(" ("));
+        const FString LegacyPrefix = (ParenIdx != INDEX_NONE) ? NameForLegacy.Left(ParenIdx) : NameForLegacy;
+
         TArray<int32> ClusterNodeIndices;
         for (int32 NodeIndex : CandidateIndices)
         {
-            if (DiscoveredNodeIndices.Contains(NodeIndex))
-                continue;
+            if (DiscoveredNodeIndices.Contains(NodeIndex)) continue;
 
             const FResourceNodeInfo& Node = (*ResourceNodes)[NodeIndex];
+            if (FVector::DistSquared(Node.Location, Marker.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
 
-            if (Node.ResourceName != FName(*Marker.Name.Left(Marker.Name.Find(TEXT(" (")))))
-                continue;
+            if (bHasStableId)
+            {
+                if (Node.ResourceName != StableClassId) continue;
+            }
+            else
+            {
+                if (!Node.NodeActor) continue;
+                TSubclassOf<UFGResourceDescriptor> Cls = Node.NodeActor->GetResourceClass();
+                if (!Cls) continue;
+                const FName LegacyName(
+                    *UFGItemDescriptor::GetItemName(Cls).ToString());
+                const FName LegacyName2(
+                    *Node.NodeActor->GetResourceName().ToString());
+                const FName Pfx = FName(*LegacyPrefix);
+                if (Pfx != LegacyName && Pfx != LegacyName2) continue;
+            }
+            ClusterNodeIndices.Add(NodeIndex);
+        }
 
-            if (FVector::DistSquared(Node.Location, Marker.Location) <= RNM_NodeScanner::CLUSTER_RADIUS_SQ)
-                ClusterNodeIndices.Add(NodeIndex);
+        if (ClusterNodeIndices.Num() == 0 && !bHasStableId)
+        {
+            TSet<FName> ClassIdsInRange;
+            for (int32 NodeIndex : CandidateIndices)
+            {
+                if (DiscoveredNodeIndices.Contains(NodeIndex)) continue;
+                const FResourceNodeInfo& Node = (*ResourceNodes)[NodeIndex];
+                if (FVector::DistSquared(Node.Location, Marker.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
+                ClassIdsInRange.Add(Node.ResourceName);
+            }
+            if (ClassIdsInRange.Num() == 1)
+            {
+                for (int32 NodeIndex : CandidateIndices)
+                {
+                    if (DiscoveredNodeIndices.Contains(NodeIndex)) continue;
+                    const FResourceNodeInfo& Node = (*ResourceNodes)[NodeIndex];
+                    if (FVector::DistSquared(Node.Location, Marker.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
+                    ClusterNodeIndices.AddUnique(NodeIndex);
+                }
+            }
         }
 
         if (ClusterNodeIndices.Num() == 0)
@@ -81,6 +132,8 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
             Cluster.Nodes.Num());
     }
 
+    ApplySoloClusteringLayoutIfNeeded();
+
     UE_LOG(LogResourceNodeMarker, Log,
         TEXT("RNM_ClusterManager: Rebuilt %d clusters from existing markers"),
         DiscoveredClusters.Num());
@@ -99,8 +152,7 @@ void URNM_ClusterManager::DeleteAllRNMMarkers(UWorld* World)
     TArray<FMapMarker> MarkersToRemove;
     for (const FMapMarker& Marker : AllMarkers)
     {
-        if (Marker.CategoryName == TEXT("RNM::Ore") ||
-            Marker.CategoryName == TEXT("RNM::Fluid"))
+        if (RNM_MapMarkerService::IsRNMMapMarkerCategory(Marker.CategoryName))
         {
             MarkersToRemove.Add(Marker);
         }
@@ -114,9 +166,9 @@ void URNM_ClusterManager::DeleteAllRNMMarkers(UWorld* World)
         MarkersToRemove.Num());
 }
 
-void URNM_ClusterManager::CreateAllClusterMarkers(UWorld* World)
+int32 URNM_ClusterManager::CreateAllClusterMarkers(UWorld* World)
 {
-    if (!World) return;
+    if (!World) return 0;
 
     int32 CreatedCount = 0;
     for (FResourceNodeCluster& Cluster : DiscoveredClusters)
@@ -134,11 +186,82 @@ void URNM_ClusterManager::CreateAllClusterMarkers(UWorld* World)
 
     UE_LOG(LogResourceNodeMarker, Log,
         TEXT("RNM_ClusterManager: Created %d cluster markers"), CreatedCount);
+    return CreatedCount;
 }
 
 bool URNM_ClusterManager::IsNodeDiscovered(int32 NodeIndex) const
 {
     return DiscoveredNodeIndices.Contains(NodeIndex);
+}
+
+int32 URNM_ClusterManager::FindResourceNodeIndex(const FResourceNodeInfo& Info) const
+{
+    if (!ResourceNodes) return INDEX_NONE;
+
+    for (int32 i = 0; i < ResourceNodes->Num(); i++)
+    {
+        const FResourceNodeInfo& A = (*ResourceNodes)[i];
+        if (Info.NodeActor && A.NodeActor == Info.NodeActor) return i;
+    }
+
+    static constexpr float MatchEpsilonSq = 1.0f; // 1 uu; nodes are from same scan, float noise only
+    for (int32 i = 0; i < ResourceNodes->Num(); i++)
+    {
+        const FResourceNodeInfo& A = (*ResourceNodes)[i];
+        if (A.ResourceName == Info.ResourceName
+            && FVector::DistSquared(A.Location, Info.Location) <= MatchEpsilonSq)
+        {
+            return i;
+        }
+    }
+
+    return INDEX_NONE;
+}
+
+void URNM_ClusterManager::ApplySoloClusteringLayoutIfNeeded()
+{
+    if (Config.bClusterNodes) return;
+
+    TArray<FResourceNodeCluster> Split;
+    TMap<int32, int32> NewNodeToCluster;
+    NewNodeToCluster.Reserve(DiscoveredNodeIndices.Num());
+
+    for (int32 OldIdx = 0; OldIdx < DiscoveredClusters.Num(); ++OldIdx)
+    {
+        FResourceNodeCluster& C = DiscoveredClusters[OldIdx];
+        if (C.Nodes.Num() == 0) continue;
+
+        if (C.Nodes.Num() == 1)
+        {
+            const int32 NewIdx = Split.Add(C);
+            if (const int32 NodeIdx = FindResourceNodeIndex(C.Nodes[0]);
+                NodeIdx != INDEX_NONE)
+            {
+                NewNodeToCluster.Add(NodeIdx, NewIdx);
+            }
+        }
+        else
+        {
+            for (const FResourceNodeInfo& N : C.Nodes)
+            {
+                FResourceNodeCluster One;
+                One.ResourceName = N.ResourceName;
+                One.Nodes.Add(N);
+                One.RecalculateCenter();
+                One.RecalculateDominantPurity();
+
+                const int32 NewIdx = Split.Add(One);
+                if (const int32 NodeIdx = FindResourceNodeIndex(N);
+                    NodeIdx != INDEX_NONE)
+                {
+                    NewNodeToCluster.Add(NodeIdx, NewIdx);
+                }
+            }
+        }
+    }
+
+    DiscoveredClusters = MoveTemp(Split);
+    NodeToClusterMap = MoveTemp(NewNodeToCluster);
 }
 
 void URNM_ClusterManager::MergeClusters(int32 TargetIndex, int32 SourceIndex)
@@ -165,6 +288,30 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
 
     DiscoveredNodeIndices.Add(NodeIndex);
 
+    if (!Config.bClusterNodes)
+    {
+        FResourceNodeCluster NewCluster;
+        NewCluster.ResourceName = NewNode.ResourceName;
+        NewCluster.Nodes.Add(NewNode);
+        NewCluster.RecalculateCenter();
+        NewCluster.RecalculateDominantPurity();
+
+        const int32 ClusterIndex = DiscoveredClusters.Add(NewCluster);
+        NodeToClusterMap.Add(NodeIndex, ClusterIndex);
+
+        FGuid NewGUID;
+        if (RNM_MapMarkerService::CreateOrUpdateClusterMarker(
+            World, DiscoveredClusters[ClusterIndex], ResourceVisuals, Config, NewGUID))
+        {
+            DiscoveredClusters[ClusterIndex].CurrentMarkerGUID = NewGUID;
+        }
+
+        UE_LOG(LogResourceNodeMarker, Log,
+            TEXT("RNM_ClusterManager: Per-node marker (clustering off) for %s"),
+            *NewNode.ResourceName.ToString());
+        return;
+    }
+
     FIntVector Cell = RNM_NodeScanner::GetGridCell(NewNode.Location);
     TArray<int32> CandidateIndices = RNM_NodeScanner::GetNeighborCellIndices(*SpatialGrid, Cell);
 
@@ -178,7 +325,7 @@ void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
 
         if (Candidate.ResourceName != NewNode.ResourceName) continue;
         if (FVector::DistSquared(NewNode.Location, Candidate.Location) > RNM_NodeScanner::CLUSTER_RADIUS_SQ) continue;
-        if (FMath::Abs(NewNode.Location.Z - Candidate.Location.Z) > RNM_NodeScanner::CLUSTER_RADIUS_Z_HEIGHT) continue;
+        if (FMath::Abs(NewNode.Location.Z - Candidate.Location.Z) > ClusterHeightTolerance) continue;
 
         if (const int32* ClusterIdx = NodeToClusterMap.Find(CandidateIndex))
             NeighborClusterIndices.Add(*ClusterIdx);
