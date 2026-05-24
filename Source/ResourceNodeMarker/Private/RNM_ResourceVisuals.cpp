@@ -206,6 +206,58 @@ bool ApplyCatalogColors(FResourceVisual& Visual, const FString& ClassName)
     return false;
 }
 
+void ApplyNeutralFallbackColors(FResourceVisual& Visual)
+{
+    const FLinearColor NeutralBase(0.55f, 0.55f, 0.55f);
+    URNM_ResourceVisuals::GeneratePurityShades(
+        NeutralBase,
+        Visual.PureColor,
+        Visual.NormalColor,
+        Visual.ImpureColor);
+}
+
+void ApplyFallbackColors(
+    FResourceVisual& Visual,
+    const FString& ClassName,
+    const TArray<FName>& ClassKeys,
+    const TFunctionRef<TOptional<FResourceVisual>(const TArray<FName>&, bool)>& TryMapKeys)
+{
+    if (ApplyCatalogColors(Visual, ClassName))
+        return;
+
+    if (const TOptional<FResourceVisual> ClassColors = TryMapKeys(ClassKeys, /*bIconMapOnly=*/false))
+    {
+        Visual.PureColor = ClassColors->PureColor;
+        Visual.NormalColor = ClassColors->NormalColor;
+        Visual.ImpureColor = ClassColors->ImpureColor;
+        return;
+    }
+
+    ApplyNeutralFallbackColors(Visual);
+}
+
+/** @return false when neutral gray fallback was applied. */
+bool ApplyKnownColorsOrNeutral(
+    FResourceVisual& Visual,
+    const FString& ClassName,
+    const TArray<FName>& ClassKeys,
+    const TFunctionRef<TOptional<FResourceVisual>(const TArray<FName>&, bool)>& TryMapKeys)
+{
+    if (ApplyCatalogColors(Visual, ClassName))
+        return true;
+
+    if (const TOptional<FResourceVisual> ClassColors = TryMapKeys(ClassKeys, /*bIconMapOnly=*/false))
+    {
+        Visual.PureColor = ClassColors->PureColor;
+        Visual.NormalColor = ClassColors->NormalColor;
+        Visual.ImpureColor = ClassColors->ImpureColor;
+        return true;
+    }
+
+    ApplyNeutralFallbackColors(Visual);
+    return false;
+}
+
 void LogUnknownVisualOnce(const FName& ResourceClassFName)
 {
     static TSet<FName> Warned;
@@ -345,16 +397,7 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
         if (TOptional<FResourceVisual> IconOnly = TryMapKeys(DisplayKeys, /*bIconMapOnly=*/true))
         {
             FResourceVisual R = IconOnly.GetValue();
-            const bool bHasCatalogColors = ApplyCatalogColors(R, ClassNameForPattern);
-            if (!bHasCatalogColors)
-            {
-                if (TOptional<FResourceVisual> ClassColors = TryMapKeys(ClassKeys, /*bIconMapOnly=*/false))
-                {
-                    R.PureColor = ClassColors->PureColor;
-                    R.NormalColor = ClassColors->NormalColor;
-                    R.ImpureColor = ClassColors->ImpureColor;
-                }
-            }
+            ApplyFallbackColors(R, ClassNameForPattern, ClassKeys, TryMapKeys);
             FinalizeIconId(R);
             return R;
         }
@@ -367,17 +410,8 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
     else if (ResClass)
         Default.IconID = ResolveInGameIconIdFromResourceClass(ResClass);
 
-    const bool bHasCatalogColors = ApplyCatalogColors(Default, ClassNameForPattern);
-    if (!bHasCatalogColors)
-    {
-        const FLinearColor NeutralBase(0.55f, 0.55f, 0.55f);
-        GeneratePurityShades(
-            NeutralBase,
-            Default.PureColor,
-            Default.NormalColor,
-            Default.ImpureColor);
+    if (!ApplyKnownColorsOrNeutral(Default, ClassNameForPattern, ClassKeys, TryMapKeys))
         LogUnknownVisualOnce(ResourceClassFName);
-    }
     return Default;
 }
 

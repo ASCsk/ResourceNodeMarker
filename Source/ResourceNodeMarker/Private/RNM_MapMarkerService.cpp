@@ -22,7 +22,7 @@ FString GetPurityDisplayLabel(const FResourceNodeCluster& Cluster, const EResour
         const FText GameLabel = Node.NodeActor->GetResoucePurityText();
         if (!GameLabel.IsEmpty())
             return GameLabel.ToString();
-        break;
+        continue;
     }
 
     if (const UEnum* PurityEnum = StaticEnum<EResourcePurity>())
@@ -120,7 +120,7 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     case RP_Pure:   Marker.Color = Visual.PureColor;   break;
     case RP_Normal: Marker.Color = Visual.NormalColor; break;
     case RP_Inpure: Marker.Color = Visual.ImpureColor; break;
-    default:        Marker.Color = FLinearColor::White; break;
+    default:        Marker.Color = Visual.NormalColor; break;
     }
 
     FMapMarker CreatedMarker;
@@ -187,13 +187,24 @@ FString RNM_MapMarkerService::BuildClusterMarkerName(const FResourceNodeCluster&
     }
 
     FString ResourceLabel;
+    TSubclassOf<UFGResourceDescriptor> ResClass = nullptr;
     for (const FResourceNodeInfo& N : Cluster.Nodes)
     {
+        if (!ResClass && N.ResourceDescriptorClass)
+            ResClass = N.ResourceDescriptorClass;
         if (N.NodeActor)
         {
-            ResourceLabel = N.NodeActor->GetResourceName().ToString();
-            break;
+            if (ResourceLabel.IsEmpty())
+                ResourceLabel = N.NodeActor->GetResourceName().ToString();
+            if (!ResClass)
+                ResClass = N.NodeActor->GetResourceClass();
         }
+    }
+    if (ResourceLabel.IsEmpty() && ResClass)
+    {
+        const FText ItemName = UFGItemDescriptor::GetItemName(ResClass);
+        if (!ItemName.IsEmpty())
+            ResourceLabel = ItemName.ToString();
     }
     if (ResourceLabel.IsEmpty())
         ResourceLabel = Cluster.ResourceName.ToString();
