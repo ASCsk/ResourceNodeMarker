@@ -46,21 +46,6 @@ public:
     static bool IsRNMMapMarkerCategory(const FString& Category);
 
     /**
-     * Returns the RNM category prefix before an optional #ClassFName suffix.
-     * @param Category - Full CategoryName from a map marker.
-     * @return RNM::Ore, RNM::Fluid, or the input when not an RNM category.
-     */
-    static FString GetRNMCategoryBase(const FString& Category);
-
-    /**
-     * True when FilterCategory should include MarkerCategory in map filter UI.
-     * Legacy RNM::Ore matches new RNM::Ore#Desc_* markers with the same base.
-     * @param FilterCategory - Selected filter category.
-     * @param MarkerCategory - Marker CategoryName.
-     */
-    static bool CategoryMatchesRNMFilter(const FString& FilterCategory, const FString& MarkerCategory);
-
-    /**
      * Parses a stable resource class id embedded in CategoryName.
      * @param Category - Expected form RNM::Ore#Desc_OreIron_C or RNM::Fluid#Desc_Water_C.
      * @param OutClassFName - UClass FName when parsing succeeds.

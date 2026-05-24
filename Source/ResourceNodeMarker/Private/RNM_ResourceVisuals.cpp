@@ -36,7 +36,7 @@ namespace InGameIcon
 
 struct FResourceCatalogEntry
 {
-    /** Matched via Contains on UClass name; longest match wins (see FindResourceCatalogEntry). */
+    /** Matched on stripped descriptor UClass name; longest match wins (see FindResourceCatalogEntry). */
     const TCHAR* ClassPattern;
     const TCHAR* Hex;
     bool bLiquid;
@@ -369,7 +369,15 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
 
     const bool bHasCatalogColors = ApplyCatalogColors(Default, ClassNameForPattern);
     if (!bHasCatalogColors)
+    {
+        const FLinearColor NeutralBase(0.55f, 0.55f, 0.55f);
+        GeneratePurityShades(
+            NeutralBase,
+            Default.PureColor,
+            Default.NormalColor,
+            Default.ImpureColor);
         LogUnknownVisualOnce(ResourceClassFName);
+    }
     return Default;
 }
 

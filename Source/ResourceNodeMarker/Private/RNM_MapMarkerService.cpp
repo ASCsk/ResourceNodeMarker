@@ -12,28 +12,48 @@ bool IsLegacyRNMCategoryWithoutClassId(const FString& Category)
     return Category == TEXT("RNM::Ore") || Category == TEXT("RNM::Fluid");
 }
 
-FString FormatLocalizedPurityCount(const int32 Count, const EResourcePurity Purity)
+FString GetPurityDisplayLabel(const FResourceNodeCluster& Cluster, const EResourcePurity Purity)
 {
-    if (Count <= 0) return FString();
+    for (const FResourceNodeInfo& Node : Cluster.Nodes)
+    {
+        if (!Node.NodeActor || Node.Purity != Purity)
+            continue;
 
-    FString Label;
+        const FText GameLabel = Node.NodeActor->GetResoucePurityText();
+        if (!GameLabel.IsEmpty())
+            return GameLabel.ToString();
+        break;
+    }
+
     if (const UEnum* PurityEnum = StaticEnum<EResourcePurity>())
     {
         const int64 EnumValue = static_cast<int64>(Purity);
         if (PurityEnum->IsValidEnumValue(EnumValue))
-            Label = PurityEnum->GetDisplayNameTextByValue(EnumValue).ToString();
-    }
-
-    if (Label.IsEmpty())
-    {
-        switch (Purity)
         {
-        case RP_Pure:   Label = TEXT("Pure"); break;
-        case RP_Normal: Label = TEXT("Normal"); break;
-        case RP_Inpure: Label = TEXT("Impure"); break;
-        default:        return FString();
+            const FText EnumLabel = PurityEnum->GetDisplayNameTextByValue(EnumValue);
+            if (!EnumLabel.IsEmpty())
+                return EnumLabel.ToString();
         }
     }
+
+    switch (Purity)
+    {
+    case RP_Pure:   return TEXT("Pure");
+    case RP_Normal: return TEXT("Normal");
+    case RP_Inpure: return TEXT("Impure");
+    default:        return FString();
+    }
+}
+
+FString FormatPurityCountSegment(
+    const FResourceNodeCluster& Cluster,
+    const int32 Count,
+    const EResourcePurity Purity)
+{
+    if (Count <= 0) return FString();
+
+    const FString Label = GetPurityDisplayLabel(Cluster, Purity);
+    if (Label.IsEmpty()) return FString();
 
     return FString::Printf(TEXT("%d %s"), Count, *Label);
 }
@@ -74,6 +94,7 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
             LegacyDisplayKey = FName(*N.NodeActor->GetResourceName().ToString());
     }
 
+    // Cluster.ResourceName is descriptor UClass FName (Desc_*_C), not localized display text.
     const FName VisualClassKey = ResClass ? ResClass->GetFName() : Cluster.ResourceName;
     FResourceVisual Visual = ResourceVisuals->GetResourceVisual(
         VisualClassKey, ResClass, Config.bUseIcons, LegacyDisplayKey);
@@ -151,18 +172,18 @@ FString RNM_MapMarkerService::BuildClusterMarkerName(const FResourceNodeCluster&
     FString PurityStr;
 
     if (PureCount > 0)
-        PurityStr += FormatLocalizedPurityCount(PureCount, RP_Pure);
+        PurityStr += FormatPurityCountSegment(Cluster, PureCount, RP_Pure);
 
     if (NormalCount > 0)
     {
         if (!PurityStr.IsEmpty()) PurityStr += TEXT(", ");
-        PurityStr += FormatLocalizedPurityCount(NormalCount, RP_Normal);
+        PurityStr += FormatPurityCountSegment(Cluster, NormalCount, RP_Normal);
     }
 
     if (ImpureCount > 0)
     {
         if (!PurityStr.IsEmpty()) PurityStr += TEXT(", ");
-        PurityStr += FormatLocalizedPurityCount(ImpureCount, RP_Inpure);
+        PurityStr += FormatPurityCountSegment(Cluster, ImpureCount, RP_Inpure);
     }
 
     FString ResourceLabel;
@@ -177,6 +198,9 @@ FString RNM_MapMarkerService::BuildClusterMarkerName(const FResourceNodeCluster&
     if (ResourceLabel.IsEmpty())
         ResourceLabel = Cluster.ResourceName.ToString();
 
+    if (PurityStr.IsEmpty())
+        return ResourceLabel;
+
     return FString::Printf(TEXT("%s (%s)"), *ResourceLabel, *PurityStr);
 }
 
@@ -184,36 +208,6 @@ bool RNM_MapMarkerService::IsRNMMapMarkerCategory(const FString& Category)
 {
     return Category == TEXT("RNM::Ore") || Category == TEXT("RNM::Fluid")
         || Category.StartsWith(TEXT("RNM::Ore#")) || Category.StartsWith(TEXT("RNM::Fluid#"));
-}
-
-FString RNM_MapMarkerService::GetRNMCategoryBase(const FString& Category)
-{
-    const int32 HashIdx = Category.Find(TEXT("#"));
-    return HashIdx == INDEX_NONE ? Category : Category.Left(HashIdx);
-}
-
-bool RNM_MapMarkerService::CategoryMatchesRNMFilter(
-    const FString& FilterCategory,
-    const FString& MarkerCategory)
-{
-    if (FilterCategory == MarkerCategory)
-        return true;
-
-    if (GetRNMCategoryBase(FilterCategory) != GetRNMCategoryBase(MarkerCategory))
-        return false;
-
-    // Legacy RNM::Ore / RNM::Fluid filters include stable RNM::Ore#Desc_* markers.
-    if (!FilterCategory.Contains(TEXT("#")))
-        return true;
-
-    FName FilterClassId;
-    FName MarkerClassId;
-    const bool bFilterHasClassId = TryParseClassIdFromCategory(FilterCategory, FilterClassId);
-    const bool bMarkerHasClassId = TryParseClassIdFromCategory(MarkerCategory, MarkerClassId);
-    if (bFilterHasClassId && bMarkerHasClassId)
-        return FilterClassId == MarkerClassId;
-
-    return !bFilterHasClassId || !bMarkerHasClassId;
 }
 
 bool RNM_MapMarkerService::TryParseClassIdFromCategory(const FString& Category, FName& OutClassFName)
