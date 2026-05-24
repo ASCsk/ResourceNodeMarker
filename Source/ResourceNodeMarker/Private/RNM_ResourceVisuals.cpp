@@ -3,8 +3,6 @@
 #include "FGItemDescriptor.h"
 #include "FGResourceDescriptor.h"
 
-#include <initializer_list>
-
 namespace
 {
 const FName TryStripBlueprintC(const FName& N)
@@ -21,7 +19,131 @@ void AppendUniqueKey(TArray<FName>& Keys, const FName& N)
         Keys.Add(N);
 }
 
-/** Stock stamps when bUseIcons is false: rock for solids, fluid/drop for liquids/gases. */
+/** In-game map icon ids (FIconsPreset). */
+namespace InGameIcon
+{
+    constexpr int Copper = 198;
+    constexpr int Iron = 193;
+    constexpr int Limestone = 204;
+    constexpr int Caterium = 200;
+    constexpr int Coal = 205;
+    constexpr int Sulfur = 203;
+    constexpr int Bauxite = 199;
+    constexpr int Quartz = 206;
+    constexpr int Uranium = 201;
+    constexpr int Sam = 280;
+}
+
+struct FResourceCatalogEntry
+{
+    /** Matched via Contains on UClass name; longest match wins (see FindResourceCatalogEntry). */
+    const TCHAR* ClassPattern;
+    const TCHAR* Hex;
+    bool bLiquid;
+    int32 IconId;
+    const TCHAR* const* MapKeys;
+    int32 MapKeyCount;
+};
+
+static const TCHAR* CopperMapKeys[] = {
+    TEXT("Copper Ore"), TEXT("Desc_OreCopper_C"), TEXT("Desc_OreCopper"), TEXT("BP_OreCopper_C") };
+static const TCHAR* IronMapKeys[] = {
+    TEXT("Iron Ore"), TEXT("Desc_OreIron_C"), TEXT("Desc_OreIron"), TEXT("BP_OreIron_C") };
+static const TCHAR* LimestoneMapKeys[] = {
+    TEXT("Limestone"), TEXT("Desc_Stone_C"), TEXT("Desc_Stone"), TEXT("Desc_Limestone_C"), TEXT("BP_Stone_C") };
+static const TCHAR* CateriumMapKeys[] = {
+    TEXT("Caterium Ore"), TEXT("Desc_OreCaterium_C"), TEXT("Desc_OreCaterium"), TEXT("BP_OreCaterium_C") };
+static const TCHAR* CoalMapKeys[] = {
+    TEXT("Coal"), TEXT("Desc_OreCoal_C"), TEXT("Desc_OreCoal"), TEXT("BP_OreCoal_C") };
+static const TCHAR* SulfurMapKeys[] = {
+    TEXT("Sulfur"), TEXT("Desc_OreSulfur_C"), TEXT("Desc_OreSulfur"), TEXT("BP_OreSulfur_C") };
+static const TCHAR* BauxiteMapKeys[] = {
+    TEXT("Bauxite"), TEXT("Desc_OreBauxite_C"), TEXT("Desc_OreBauxite"), TEXT("BP_OreBauxite_C") };
+static const TCHAR* QuartzMapKeys[] = {
+    TEXT("Raw Quartz"), TEXT("Desc_OreQuartz_C"), TEXT("Desc_OreQuartz"), TEXT("Desc_Crystal_C"), TEXT("BP_OreQuartz_C") };
+static const TCHAR* UraniumMapKeys[] = {
+    TEXT("Uranium"), TEXT("Desc_OreUranium_C"), TEXT("Desc_OreUranium"), TEXT("BP_OreUranium_C") };
+static const TCHAR* SamMapKeys[] = {
+    TEXT("SAM"), TEXT("Desc_SAM_C"), TEXT("Desc_SAM"), TEXT("Desc_OreSAM_C"), TEXT("BP_SAM_C") };
+static const TCHAR* WaterMapKeys[] = {
+    TEXT("Water"), TEXT("Desc_Water_C"), TEXT("Desc_Water"), TEXT("BP_Water_C") };
+static const TCHAR* OilMapKeys[] = {
+    TEXT("Crude Oil"), TEXT("Desc_LiquidOil_C"), TEXT("Desc_LiquidOil"), TEXT("BP_LiquidOil_C") };
+static const TCHAR* NitrogenMapKeys[] = {
+    TEXT("Nitrogen Gas"), TEXT("Desc_LiquidNitrogen_C"), TEXT("Desc_LiquidNitrogen"), TEXT("BP_LiquidNitrogen_C") };
+static const TCHAR* GeyserMapKeys[] = {
+    TEXT("Geyser"), TEXT("Desc_WaterGeyser_C"), TEXT("Desc_WaterGeyser"), TEXT("BP_WaterGeyser_C") };
+
+/** Single source of truth for hex colors, icon ids, and ResourceVisualMap keys. */
+static const FResourceCatalogEntry ResourceCatalog[] = {
+    { TEXT("Desc_WaterGeyser"), TEXT("00FAB3"), true, 0, GeyserMapKeys, UE_ARRAY_COUNT(GeyserMapKeys) },
+    { TEXT("Desc_LiquidNitrogen"), TEXT("ADADAD"), true, 0, NitrogenMapKeys, UE_ARRAY_COUNT(NitrogenMapKeys) },
+    { TEXT("Desc_LiquidOil"), TEXT("1F1F1F"), true, 0, OilMapKeys, UE_ARRAY_COUNT(OilMapKeys) },
+    { TEXT("Desc_OreCaterium"), TEXT("FFCB00"), false, InGameIcon::Caterium, CateriumMapKeys, UE_ARRAY_COUNT(CateriumMapKeys) },
+    { TEXT("Desc_OreCopper"), TEXT("CF4100"), false, InGameIcon::Copper, CopperMapKeys, UE_ARRAY_COUNT(CopperMapKeys) },
+    { TEXT("Desc_OreBauxite"), TEXT("FFB65E"), false, InGameIcon::Bauxite, BauxiteMapKeys, UE_ARRAY_COUNT(BauxiteMapKeys) },
+    { TEXT("Desc_OreUranium"), TEXT("85FF2E"), false, InGameIcon::Uranium, UraniumMapKeys, UE_ARRAY_COUNT(UraniumMapKeys) },
+    { TEXT("Desc_OreQuartz"), TEXT("FED4FF"), false, InGameIcon::Quartz, QuartzMapKeys, UE_ARRAY_COUNT(QuartzMapKeys) },
+    { TEXT("Desc_OreSulfur"), TEXT("E6E615"), false, InGameIcon::Sulfur, SulfurMapKeys, UE_ARRAY_COUNT(SulfurMapKeys) },
+    { TEXT("Desc_OreIron"), TEXT("93959E"), false, InGameIcon::Iron, IronMapKeys, UE_ARRAY_COUNT(IronMapKeys) },
+    { TEXT("Desc_Stone"), TEXT("D1B97B"), false, InGameIcon::Limestone, LimestoneMapKeys, UE_ARRAY_COUNT(LimestoneMapKeys) },
+    { TEXT("Desc_OreCoal"), TEXT("403B3B"), false, InGameIcon::Coal, CoalMapKeys, UE_ARRAY_COUNT(CoalMapKeys) },
+    { TEXT("Desc_OreSAM"), TEXT("A332C9"), false, InGameIcon::Sam, SamMapKeys, UE_ARRAY_COUNT(SamMapKeys) },
+    { TEXT("Desc_SAM"), TEXT("A332C9"), false, InGameIcon::Sam, SamMapKeys, UE_ARRAY_COUNT(SamMapKeys) },
+    { TEXT("Desc_Water"), TEXT("17E3CE"), true, 0, WaterMapKeys, UE_ARRAY_COUNT(WaterMapKeys) },
+    { TEXT("Desc_Crystal"), TEXT("FED4FF"), false, InGameIcon::Quartz, QuartzMapKeys, UE_ARRAY_COUNT(QuartzMapKeys) },
+};
+
+FString NormalizeDescriptorClassName(FString ClassName)
+{
+    if (ClassName.EndsWith(TEXT("_C"), ESearchCase::CaseSensitive) && ClassName.Len() > 2)
+        return ClassName.Left(ClassName.Len() - 2);
+    return ClassName;
+}
+
+bool ClassNameMatchesCatalogPattern(const FString& NormalizedClassName, const TCHAR* Pattern)
+{
+    const FString PatternStr(Pattern);
+    if (NormalizedClassName == PatternStr)
+        return true;
+
+    if (!NormalizedClassName.StartsWith(PatternStr))
+        return false;
+
+    if (NormalizedClassName.Len() == PatternStr.Len())
+        return true;
+
+    const TCHAR Next = NormalizedClassName[PatternStr.Len()];
+    return Next == TEXT('_');
+}
+
+const FResourceCatalogEntry* FindResourceCatalogEntry(const FString& ClassName)
+{
+    const FString Normalized = NormalizeDescriptorClassName(ClassName);
+    const FResourceCatalogEntry* Best = nullptr;
+    int32 BestPatternLen = 0;
+
+    for (const FResourceCatalogEntry& Entry : ResourceCatalog)
+    {
+        if (!ClassNameMatchesCatalogPattern(Normalized, Entry.ClassPattern))
+            continue;
+
+        const int32 PatternLen = FCString::Strlen(Entry.ClassPattern);
+        if (PatternLen > BestPatternLen)
+        {
+            BestPatternLen = PatternLen;
+            Best = &Entry;
+        }
+    }
+
+    return Best;
+}
+
+FLinearColor ColorFromHex(const FString& Hex)
+{
+    return FLinearColor::FromSRGBColor(FColor::FromHex(Hex));
+}
+
 int32 GetStampIconIdForOreOrFluid(TSubclassOf<UFGResourceDescriptor> ResClass)
 {
     FStampPreset Sp;
@@ -34,7 +156,6 @@ int32 GetStampIconIdForOreOrFluid(TSubclassOf<UFGResourceDescriptor> ResClass)
     return Sp.Rock;
 }
 
-/** When bUseIcons is true and visuals miss: map descriptor class names to in-game map icon IDs (FIconsPreset). */
 int32 ResolveInGameIconIdFromResourceClass(TSubclassOf<UFGResourceDescriptor> ResClass)
 {
     FStampPreset Sp;
@@ -44,113 +165,81 @@ int32 ResolveInGameIconIdFromResourceClass(TSubclassOf<UFGResourceDescriptor> Re
     if (Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS)
         return Sp.Fluids;
 
-    const FString S = ResClass->GetName();
-    FIconsPreset Ip;
-    if (S.Contains(TEXT("Iron"))) return Ip.Iron;
-    if (S.Contains(TEXT("Copper"))) return Ip.Copper;
-    if (S.Contains(TEXT("Limestone"))) return Ip.Limestone;
-    if (S.Contains(TEXT("Stone"))) return Ip.Limestone;
-    if (S.Contains(TEXT("Coal"))) return Ip.Coal;
-    if (S.Contains(TEXT("Sulfur"))) return Ip.Sulfur;
-    if (S.Contains(TEXT("Bauxite"))) return Ip.Bauxite;
-    if (S.Contains(TEXT("Quartz"))) return Ip.Quartz;
-    if (S.Contains(TEXT("Uranium"))) return Ip.Uranium;
-    if (S.Contains(TEXT("Caterium"))) return Ip.Caterium;
-    if (S.Contains(TEXT("Sam"))) return Ip.Sam;
+    if (const FResourceCatalogEntry* Entry = FindResourceCatalogEntry(ResClass->GetName()))
+        return Entry->IconId != 0 ? Entry->IconId : Sp.Rock;
 
     return Sp.Rock;
+}
+
+FResourceVisual BuildVisualFromCatalogEntry(
+    const FResourceCatalogEntry& Entry,
+    const bool bUseIcons,
+    TSubclassOf<UFGResourceDescriptor> ResClass)
+{
+    FResourceVisual Visual;
+    FStampPreset Stamp;
+    Visual.IconID = Entry.bLiquid ? Stamp.Fluids : Stamp.Rock;
+    URNM_ResourceVisuals::GeneratePurityShades(
+        ColorFromHex(Entry.Hex),
+        Visual.PureColor,
+        Visual.NormalColor,
+        Visual.ImpureColor);
+
+    if (bUseIcons)
+        Visual.IconID = ResClass ? ResolveInGameIconIdFromResourceClass(ResClass)
+            : (Entry.IconId != 0 ? Entry.IconId : Stamp.Rock);
+
+    return Visual;
+}
+
+bool ApplyCatalogColors(FResourceVisual& Visual, const FString& ClassName)
+{
+    if (const FResourceCatalogEntry* Entry = FindResourceCatalogEntry(ClassName))
+    {
+        const FResourceVisual Colors = BuildVisualFromCatalogEntry(
+            *Entry, /*bUseIcons=*/false, nullptr);
+        Visual.PureColor = Colors.PureColor;
+        Visual.NormalColor = Colors.NormalColor;
+        Visual.ImpureColor = Colors.ImpureColor;
+        return true;
+    }
+    return false;
+}
+
+void LogUnknownVisualOnce(const FName& ResourceClassFName)
+{
+    static TSet<FName> Warned;
+    if (Warned.Contains(ResourceClassFName))
+        return;
+
+    Warned.Add(ResourceClassFName);
+    UE_LOG(LogResourceNodeMarker, Warning,
+        TEXT("RNM_ResourceVisuals: No visual found for class keys around '%s', using fallback"),
+        *ResourceClassFName.ToString());
 }
 }
 
 URNM_ResourceVisuals::URNM_ResourceVisuals()
 {
     FStampPreset Stamp;
-    FIconsPreset Icons;
 
-    auto MakeColor = [](const FString& Hex)
-    {
-        return FLinearColor::FromSRGBColor(FColor::FromHex(Hex));
-    };
-
-    /** Same purity shades + stamp icon for every lookup key (English display + UClass FNames). */
-    auto AddResourceGroup = [&](const std::initializer_list<const TCHAR*> Names, const FString& BaseHex,
-                                const bool bLiquid)
+    for (const FResourceCatalogEntry& Entry : ResourceCatalog)
     {
         FResourceVisual Visual;
-        Visual.IconID = bLiquid ? Stamp.Fluids : Stamp.Rock;
+        Visual.IconID = Entry.bLiquid ? Stamp.Fluids : Stamp.Rock;
         GeneratePurityShades(
-            MakeColor(BaseHex),
+            ColorFromHex(Entry.Hex),
             Visual.PureColor,
             Visual.NormalColor,
             Visual.ImpureColor);
-        for (const TCHAR* Name : Names)
-            ResourceVisualMap.Add(FName(Name), Visual);
-    };
 
-    // Solid ores: legacy English keys (main) plus descriptor class FNames for language-independent scans.
-    AddResourceGroup(
-        {TEXT("Copper Ore"), TEXT("Desc_OreCopper_C"), TEXT("Desc_OreCopper"), TEXT("BP_OreCopper_C")},
-        TEXT("CF4100"), false);
-    AddResourceGroup(
-        {TEXT("Iron Ore"), TEXT("Desc_OreIron_C"), TEXT("Desc_OreIron"), TEXT("BP_OreIron_C")},
-        TEXT("93959E"), false);
-    AddResourceGroup(
-        {TEXT("Limestone"), TEXT("Desc_Stone_C"), TEXT("Desc_Stone"), TEXT("Desc_Limestone_C"), TEXT("BP_Stone_C")},
-        TEXT("D1B97B"), false);
-    AddResourceGroup(
-        {TEXT("Caterium Ore"), TEXT("Desc_OreCaterium_C"), TEXT("Desc_OreCaterium"), TEXT("BP_OreCaterium_C")},
-        TEXT("FFCB00"), false);
-    AddResourceGroup(
-        {TEXT("Coal"), TEXT("Desc_OreCoal_C"), TEXT("Desc_OreCoal"), TEXT("BP_OreCoal_C")},
-        TEXT("403B3B"), false);
-    AddResourceGroup(
-        {TEXT("Sulfur"), TEXT("Desc_OreSulfur_C"), TEXT("Desc_OreSulfur"), TEXT("BP_OreSulfur_C")},
-        TEXT("E6E615"), false);
-    AddResourceGroup(
-        {TEXT("Bauxite"), TEXT("Desc_OreBauxite_C"), TEXT("Desc_OreBauxite"), TEXT("BP_OreBauxite_C")},
-        TEXT("FFB65E"), false);
-    AddResourceGroup(
-        {TEXT("Raw Quartz"), TEXT("Desc_OreQuartz_C"), TEXT("Desc_OreQuartz"), TEXT("Desc_Crystal_C"), TEXT("BP_OreQuartz_C")},
-        TEXT("FED4FF"), false);
-    AddResourceGroup(
-        {TEXT("Uranium"), TEXT("Desc_OreUranium_C"), TEXT("Desc_OreUranium"), TEXT("BP_OreUranium_C")},
-        TEXT("85FF2E"), false);
-    AddResourceGroup(
-        {TEXT("SAM"), TEXT("Desc_SAM_C"), TEXT("Desc_SAM"), TEXT("Desc_OreSAM_C"), TEXT("BP_SAM_C")},
-        TEXT("A332C9"), false);
-
-    AddResourceGroup(
-        {TEXT("Water"), TEXT("Desc_Water_C"), TEXT("Desc_Water"), TEXT("BP_Water_C")},
-        TEXT("17E3CE"), true);
-    AddResourceGroup(
-        {TEXT("Crude Oil"), TEXT("Desc_LiquidOil_C"), TEXT("Desc_LiquidOil"), TEXT("BP_LiquidOil_C")},
-        TEXT("1F1F1F"), true);
-    AddResourceGroup(
-        {TEXT("Nitrogen Gas"), TEXT("Desc_LiquidNitrogen_C"), TEXT("Desc_LiquidNitrogen"), TEXT("BP_LiquidNitrogen_C")},
-        TEXT("ADADAD"), true);
-    AddResourceGroup(
-        {TEXT("Geyser"), TEXT("Desc_WaterGeyser_C"), TEXT("Desc_WaterGeyser"), TEXT("BP_WaterGeyser_C")},
-        TEXT("00FAB3"), true);
-
-    auto AddIconPair = [&](const std::initializer_list<const TCHAR*> Names, const int32 IconId)
-    {
-        for (const TCHAR* N : Names)
-            IconMap.Add(FName(N), IconId);
-    };
-
-    AddIconPair({TEXT("Copper Ore"), TEXT("Desc_OreCopper_C"), TEXT("Desc_OreCopper"), TEXT("BP_OreCopper_C")}, Icons.Copper);
-    AddIconPair({TEXT("Iron Ore"), TEXT("Desc_OreIron_C"), TEXT("Desc_OreIron"), TEXT("BP_OreIron_C")}, Icons.Iron);
-    AddIconPair({TEXT("Limestone"), TEXT("Desc_Stone_C"), TEXT("Desc_Stone"), TEXT("Desc_Limestone_C"), TEXT("BP_Stone_C")},
-        Icons.Limestone);
-    AddIconPair({TEXT("Caterium Ore"), TEXT("Desc_OreCaterium_C"), TEXT("Desc_OreCaterium"), TEXT("BP_OreCaterium_C")},
-        Icons.Caterium);
-    AddIconPair({TEXT("Coal"), TEXT("Desc_OreCoal_C"), TEXT("Desc_OreCoal"), TEXT("BP_OreCoal_C")}, Icons.Coal);
-    AddIconPair({TEXT("Sulfur"), TEXT("Desc_OreSulfur_C"), TEXT("Desc_OreSulfur"), TEXT("BP_OreSulfur_C")}, Icons.Sulfur);
-    AddIconPair({TEXT("Bauxite"), TEXT("Desc_OreBauxite_C"), TEXT("Desc_OreBauxite"), TEXT("BP_OreBauxite_C")}, Icons.Bauxite);
-    AddIconPair({TEXT("Raw Quartz"), TEXT("Desc_OreQuartz_C"), TEXT("Desc_OreQuartz"), TEXT("Desc_Crystal_C"), TEXT("BP_OreQuartz_C")},
-        Icons.Quartz);
-    AddIconPair({TEXT("Uranium"), TEXT("Desc_OreUranium_C"), TEXT("Desc_OreUranium"), TEXT("BP_OreUranium_C")}, Icons.Uranium);
-    AddIconPair({TEXT("SAM"), TEXT("Desc_SAM_C"), TEXT("Desc_SAM"), TEXT("Desc_OreSAM_C"), TEXT("BP_SAM_C")}, Icons.Sam);
+        for (int32 i = 0; i < Entry.MapKeyCount; ++i)
+        {
+            ResourceVisualMap.Add(FName(Entry.MapKeys[i]), Visual);
+            if (Entry.IconId != 0)
+                IconMap.Add(FName(Entry.MapKeys[i]), Entry.IconId);
+        }
+    }
 }
 
 FResourceVisual URNM_ResourceVisuals::GetResourceVisual(const FName& ResourceName, const bool bUseIcons) const
@@ -164,21 +253,6 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
     const bool bUseIcons,
     const FName OptionalLegacyDisplayKey) const
 {
-    TArray<FName> Keys;
-    AppendUniqueKey(Keys, ResourceClassFName);
-    AppendUniqueKey(Keys, TryStripBlueprintC(ResourceClassFName));
-    AppendUniqueKey(Keys, OptionalLegacyDisplayKey);
-
-    if (ResClass)
-    {
-        AppendUniqueKey(Keys, ResClass->GetFName());
-        AppendUniqueKey(Keys, TryStripBlueprintC(ResClass->GetFName()));
-        // Legacy map keys: English (or current locale) display name from the item descriptor
-        const FText ItemName = UFGItemDescriptor::GetItemName(ResClass);
-        if (!ItemName.IsEmpty())
-            AppendUniqueKey(Keys, FName(*ItemName.ToString()));
-    }
-
     FStampPreset Preset;
 
     auto FinalizeIconId = [&](FResourceVisual& R)
@@ -193,23 +267,28 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
         R.IconID = ResolveInGameIconIdFromResourceClass(ResClass);
     };
 
-    for (const FName& Key : Keys)
+    auto TryMapKeys = [&](const TArray<FName>& Keys, const bool bIconMapOnly) -> TOptional<FResourceVisual>
     {
-        if (const FResourceVisual* Found = ResourceVisualMap.Find(Key))
+        if (!bIconMapOnly)
         {
-            FResourceVisual R = *Found;
-            if (bUseIcons)
+            for (const FName& Key : Keys)
             {
-                if (const int32* Icon = IconMap.Find(Key))
-                    R.IconID = *Icon;
+                if (const FResourceVisual* Found = ResourceVisualMap.Find(Key))
+                {
+                    FResourceVisual R = *Found;
+                    if (bUseIcons)
+                    {
+                        if (const int32* Icon = IconMap.Find(Key))
+                            R.IconID = *Icon;
+                    }
+                    FinalizeIconId(R);
+                    return R;
+                }
             }
-            FinalizeIconId(R);
-            return R;
         }
-    }
 
-    if (bUseIcons)
-    {
+        if (!bUseIcons) return NullOpt;
+
         for (const FName& Key : Keys)
         {
             if (const int32* Icon = IconMap.Find(Key))
@@ -220,6 +299,65 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
                 return R;
             }
         }
+        return NullOpt;
+    };
+
+    FString ClassNameForPattern = ResourceClassFName.ToString();
+    if (ResClass)
+        ClassNameForPattern = ResClass->GetName();
+
+    // Phase 1: UClass FNames only — stable across game language.
+    TArray<FName> ClassKeys;
+    AppendUniqueKey(ClassKeys, ResourceClassFName);
+    AppendUniqueKey(ClassKeys, TryStripBlueprintC(ResourceClassFName));
+    if (ResClass)
+    {
+        AppendUniqueKey(ClassKeys, ResClass->GetFName());
+        AppendUniqueKey(ClassKeys, TryStripBlueprintC(ResClass->GetFName()));
+    }
+
+    if (TOptional<FResourceVisual> Found = TryMapKeys(ClassKeys, /*bIconMapOnly=*/false))
+        return Found.GetValue();
+
+    // Phase 2: longest ClassPattern match on descriptor UClass name.
+    if (const FResourceCatalogEntry* Entry = FindResourceCatalogEntry(ClassNameForPattern))
+    {
+        FResourceVisual R = BuildVisualFromCatalogEntry(*Entry, bUseIcons, ResClass);
+        FinalizeIconId(R);
+        return R;
+    }
+
+    // Phase 3: localized / legacy display names (English map keys, current locale GetItemName).
+    TArray<FName> DisplayKeys;
+    AppendUniqueKey(DisplayKeys, OptionalLegacyDisplayKey);
+    if (ResClass)
+    {
+        const FText ItemName = UFGItemDescriptor::GetItemName(ResClass);
+        if (!ItemName.IsEmpty())
+            AppendUniqueKey(DisplayKeys, FName(*ItemName.ToString()));
+    }
+
+    if (TOptional<FResourceVisual> Found = TryMapKeys(DisplayKeys, /*bIconMapOnly=*/false))
+        return Found.GetValue();
+
+    if (bUseIcons)
+    {
+        if (TOptional<FResourceVisual> IconOnly = TryMapKeys(DisplayKeys, /*bIconMapOnly=*/true))
+        {
+            FResourceVisual R = IconOnly.GetValue();
+            const bool bHasCatalogColors = ApplyCatalogColors(R, ClassNameForPattern);
+            if (!bHasCatalogColors)
+            {
+                if (TOptional<FResourceVisual> ClassColors = TryMapKeys(ClassKeys, /*bIconMapOnly=*/false))
+                {
+                    R.PureColor = ClassColors->PureColor;
+                    R.NormalColor = ClassColors->NormalColor;
+                    R.ImpureColor = ClassColors->ImpureColor;
+                }
+            }
+            FinalizeIconId(R);
+            return R;
+        }
     }
 
     FResourceVisual Default;
@@ -229,9 +367,9 @@ FResourceVisual URNM_ResourceVisuals::GetResourceVisual(
     else if (ResClass)
         Default.IconID = ResolveInGameIconIdFromResourceClass(ResClass);
 
-    UE_LOG(LogResourceNodeMarker, Warning,
-        TEXT("RNM_ResourceVisuals: No visual found for keys around '%s', using fallback"),
-        *ResourceClassFName.ToString());
+    const bool bHasCatalogColors = ApplyCatalogColors(Default, ClassNameForPattern);
+    if (!bHasCatalogColors)
+        LogUnknownVisualOnce(ResourceClassFName);
     return Default;
 }
 
@@ -248,13 +386,11 @@ void URNM_ResourceVisuals::GeneratePurityShades(
 
     OutNormal = BaseColor;
 
-    // Pure: more saturated, slightly darker
     OutPure = FLinearColor(H,
         FMath::Clamp(S * 1.4f, 0.0f, 1.0f),
         FMath::Clamp(V * 0.75f, 0.0f, 1.0f),
         1.0f).HSVToLinearRGB();
 
-    // Impure: less saturated, brighter
     OutImpure = FLinearColor(H,
         FMath::Clamp(S * 0.7f, 0.0f, 1.0f),
         FMath::Clamp(V * 1.5f, 0.0f, 1.0f),

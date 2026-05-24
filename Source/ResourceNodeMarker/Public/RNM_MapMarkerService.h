@@ -7,6 +7,7 @@
 #include "RNM_ResourceVisuals.h"
 #include "ResourceNodeMarker_ConfigStruct.h"
 
+/** Stateless helpers for creating, naming, and identifying RNM map markers. */
 class RNM_MapMarkerService
 {
 public:
@@ -30,22 +31,63 @@ public:
         const FResourceNodeMarker_ConfigStruct& Config,
         FGuid& OutGUID);
 
+    /**
+     * Maps config integer (0–4) to Satisfactory compass view distance.
+     * @param Value - Config CompassViewDistance; invalid values log a warning and default to Mid.
+     * @return Matching ECompassViewDistance for the map marker.
+     */
     static ECompassViewDistance ParseCompassViewDistance(int32 Value);
 
-    /** RNM markers (legacy RNM::Ore / RNM::Fluid or v2 RNM::Ore#ClassFName). */
+    /**
+     * Returns true if Category is an RNM-owned marker category.
+     * Accepts legacy RNM::Ore / RNM::Fluid and stable RNM::Ore#ClassFName forms.
+     * @param Category - FMapMarker::CategoryName from the map manager.
+     */
     static bool IsRNMMapMarkerCategory(const FString& Category);
 
-    /** Legacy: category held RNM::Ore#ClassFName. Still parsed for old saves. */
+    /**
+     * Returns the RNM category prefix before an optional #ClassFName suffix.
+     * @param Category - Full CategoryName from a map marker.
+     * @return RNM::Ore, RNM::Fluid, or the input when not an RNM category.
+     */
+    static FString GetRNMCategoryBase(const FString& Category);
+
+    /**
+     * True when FilterCategory should include MarkerCategory in map filter UI.
+     * Legacy RNM::Ore matches new RNM::Ore#Desc_* markers with the same base.
+     * @param FilterCategory - Selected filter category.
+     * @param MarkerCategory - Marker CategoryName.
+     */
+    static bool CategoryMatchesRNMFilter(const FString& FilterCategory, const FString& MarkerCategory);
+
+    /**
+     * Parses a stable resource class id embedded in CategoryName.
+     * @param Category - Expected form RNM::Ore#Desc_OreIron_C or RNM::Fluid#Desc_Water_C.
+     * @param OutClassFName - UClass FName when parsing succeeds.
+     * @return true if a # suffix was present and recognized.
+     */
     static bool TryParseClassIdFromCategory(const FString& Category, FName& OutClassFName);
 
-    /** Legacy markers only: optional embedded id in Name suffix " #RNM:ClassName" (new markers omit this). */
+    /**
+     * Parses a stable class id from a legacy marker name suffix.
+     * @param MarkerName - Name that may end with " #RNM:ClassName" (older markers only).
+     * @param OutClassFName - UClass FName when parsing succeeds.
+     * @return true if the suffix was found.
+     */
     static bool TryParseClassIdFromMarkerName(const FString& MarkerName, FName& OutClassFName);
 
-    /** Short UI category only: RNM::Ore or RNM::Fluid */
-    static FString BuildCategoryName(bool bIsFluid);
+    /**
+     * Builds the map filter category string for an RNM marker.
+     * @param bIsFluid - true for liquids/gases (RNM::Fluid), false for solids (RNM::Ore).
+     * @param StableClassId - Optional UClass FName appended after # for locale-safe rebuild.
+     * @return Category string stored on FMapMarker::CategoryName.
+     */
+    static FString BuildCategoryName(bool bIsFluid, FName StableClassId = NAME_None);
 
+    /** Squared distance (uu) used to match extractor placement to a scanned node location. */
     static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
 
 private:
+    /** Localized display name plus purity counts, e.g. "Iron Ore (2 Pure, 1 Normal)". */
     static FString BuildClusterMarkerName(const FResourceNodeCluster& Cluster);
 };

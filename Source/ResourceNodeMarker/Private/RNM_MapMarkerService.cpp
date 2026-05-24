@@ -3,6 +3,41 @@
 #include "FGItemDescriptor.h"
 #include "FGMapManager.h"
 #include "FGResourceDescriptor.h"
+#include "FGResourceNode.h"
+
+namespace
+{
+bool IsLegacyRNMCategoryWithoutClassId(const FString& Category)
+{
+    return Category == TEXT("RNM::Ore") || Category == TEXT("RNM::Fluid");
+}
+
+FString FormatLocalizedPurityCount(const int32 Count, const EResourcePurity Purity)
+{
+    if (Count <= 0) return FString();
+
+    FString Label;
+    if (const UEnum* PurityEnum = StaticEnum<EResourcePurity>())
+    {
+        const int64 EnumValue = static_cast<int64>(Purity);
+        if (PurityEnum->IsValidEnumValue(EnumValue))
+            Label = PurityEnum->GetDisplayNameTextByValue(EnumValue).ToString();
+    }
+
+    if (Label.IsEmpty())
+    {
+        switch (Purity)
+        {
+        case RP_Pure:   Label = TEXT("Pure"); break;
+        case RP_Normal: Label = TEXT("Normal"); break;
+        case RP_Inpure: Label = TEXT("Impure"); break;
+        default:        return FString();
+        }
+    }
+
+    return FString::Printf(TEXT("%d %s"), Count, *Label);
+}
+}
 
 bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     UWorld* World,
@@ -33,12 +68,15 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     {
         if (!ResClass && N.ResourceDescriptorClass)
             ResClass = N.ResourceDescriptorClass;
+        if (!ResClass && N.NodeActor)
+            ResClass = N.NodeActor->GetResourceClass();
         if (LegacyDisplayKey == NAME_None && N.NodeActor)
             LegacyDisplayKey = FName(*N.NodeActor->GetResourceName().ToString());
     }
 
+    const FName VisualClassKey = ResClass ? ResClass->GetFName() : Cluster.ResourceName;
     FResourceVisual Visual = ResourceVisuals->GetResourceVisual(
-        Cluster.ResourceName, ResClass, Config.bUseIcons, LegacyDisplayKey);
+        VisualClassKey, ResClass, Config.bUseIcons, LegacyDisplayKey);
     FStampPreset Icons;
     const bool bIsFluid = ResClass
         ? (UFGItemDescriptor::GetForm(ResClass) == EResourceForm::RF_LIQUID
@@ -53,7 +91,7 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     Marker.IconID = Visual.IconID;
     Marker.Scale = Cluster.GetMarkerScale();
     Marker.Name = BuildClusterMarkerName(Cluster);
-    Marker.CategoryName = BuildCategoryName(bIsFluid);
+    Marker.CategoryName = BuildCategoryName(bIsFluid, VisualClassKey);
     Marker.CompassViewDistance = ParseCompassViewDistance(Config.CompassViewDistance);
 
     switch (Cluster.DominantPurity)
@@ -113,18 +151,18 @@ FString RNM_MapMarkerService::BuildClusterMarkerName(const FResourceNodeCluster&
     FString PurityStr;
 
     if (PureCount > 0)
-        PurityStr += FString::Printf(TEXT("%d Pure"), PureCount);
+        PurityStr += FormatLocalizedPurityCount(PureCount, RP_Pure);
 
     if (NormalCount > 0)
     {
         if (!PurityStr.IsEmpty()) PurityStr += TEXT(", ");
-        PurityStr += FString::Printf(TEXT("%d Normal"), NormalCount);
+        PurityStr += FormatLocalizedPurityCount(NormalCount, RP_Normal);
     }
 
     if (ImpureCount > 0)
     {
         if (!PurityStr.IsEmpty()) PurityStr += TEXT(", ");
-        PurityStr += FString::Printf(TEXT("%d Impure"), ImpureCount);
+        PurityStr += FormatLocalizedPurityCount(ImpureCount, RP_Inpure);
     }
 
     FString ResourceLabel;
@@ -148,9 +186,42 @@ bool RNM_MapMarkerService::IsRNMMapMarkerCategory(const FString& Category)
         || Category.StartsWith(TEXT("RNM::Ore#")) || Category.StartsWith(TEXT("RNM::Fluid#"));
 }
 
+FString RNM_MapMarkerService::GetRNMCategoryBase(const FString& Category)
+{
+    const int32 HashIdx = Category.Find(TEXT("#"));
+    return HashIdx == INDEX_NONE ? Category : Category.Left(HashIdx);
+}
+
+bool RNM_MapMarkerService::CategoryMatchesRNMFilter(
+    const FString& FilterCategory,
+    const FString& MarkerCategory)
+{
+    if (FilterCategory == MarkerCategory)
+        return true;
+
+    if (GetRNMCategoryBase(FilterCategory) != GetRNMCategoryBase(MarkerCategory))
+        return false;
+
+    // Legacy RNM::Ore / RNM::Fluid filters include stable RNM::Ore#Desc_* markers.
+    if (!FilterCategory.Contains(TEXT("#")))
+        return true;
+
+    FName FilterClassId;
+    FName MarkerClassId;
+    const bool bFilterHasClassId = TryParseClassIdFromCategory(FilterCategory, FilterClassId);
+    const bool bMarkerHasClassId = TryParseClassIdFromCategory(MarkerCategory, MarkerClassId);
+    if (bFilterHasClassId && bMarkerHasClassId)
+        return FilterClassId == MarkerClassId;
+
+    return !bFilterHasClassId || !bMarkerHasClassId;
+}
+
 bool RNM_MapMarkerService::TryParseClassIdFromCategory(const FString& Category, FName& OutClassFName)
 {
     OutClassFName = NAME_None;
+    if (IsLegacyRNMCategoryWithoutClassId(Category))
+        return false;
+
     const int32 HashIdx = Category.Find(TEXT("#"));
     if (HashIdx == INDEX_NONE) return false;
 
@@ -178,9 +249,12 @@ bool RNM_MapMarkerService::TryParseClassIdFromMarkerName(const FString& MarkerNa
     return true;
 }
 
-FString RNM_MapMarkerService::BuildCategoryName(const bool bIsFluid)
+FString RNM_MapMarkerService::BuildCategoryName(const bool bIsFluid, const FName StableClassId)
 {
-    return bIsFluid ? TEXT("RNM::Fluid") : TEXT("RNM::Ore");
+    const FString Base = bIsFluid ? TEXT("RNM::Fluid") : TEXT("RNM::Ore");
+    if (StableClassId != NAME_None)
+        return FString::Printf(TEXT("%s#%s"), *Base, *StableClassId.ToString());
+    return Base;
 }
 
 ECompassViewDistance RNM_MapMarkerService::ParseCompassViewDistance(int32 Value)

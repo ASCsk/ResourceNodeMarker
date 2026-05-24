@@ -15,7 +15,11 @@ class RESOURCENODEMARKER_API URNM_ClusterManager : public UObject
 public:
     /**
      * Initializes the cluster manager with required dependencies.
-     * Must be called before any other method.
+     * Must be called before any other method; resets all discovery state.
+     * @param InResourceNodes - Scanned nodes (owned by URNM_WorldSubsystem).
+     * @param InSpatialGrid - Cell index built from InResourceNodes.
+     * @param InResourceVisuals - Icon and purity color lookup.
+     * @param InConfig - Active mod configuration (radius, clustering, icons).
      */
     void Initialize(
         const TArray<FResourceNodeInfo>& InResourceNodes,
@@ -24,38 +28,48 @@ public:
         const FResourceNodeMarker_ConfigStruct& InConfig);
 
     /**
-     * Reads existing RNM:: markers from the map and rebuilds cluster state from them.
-     * Does not create any new markers.
+     * Rebuilds in-memory cluster state from existing RNM map markers.
+     * Does not create or delete markers; used before a full marker refresh on load.
+     * @param World - The game world (reads markers via AFGMapManager).
      */
     void RebuildClustersFromExistingMarkers(UWorld* World);
 
     /**
-     * Deletes RNM map markers (legacy and RNM::#class-id categories).
+     * Removes every map marker whose CategoryName is RNM-owned.
+     * @param World - The game world.
      */
     void DeleteAllRNMMarkers(UWorld* World);
 
     /**
-     * Creates one map marker per cluster (or one per node when bClusterNodes is false).
-     * Should be called after DeleteAllRNMMarkers.
+     * Creates one map marker per cluster (or one per node when clustering is disabled).
+     * Call after DeleteAllRNMMarkers when replacing all markers on load.
+     * @param World - The game world.
+     * @return Number of markers created successfully.
      */
-    /** @return Number of markers created successfully. */
     int32 CreateAllClusterMarkers(UWorld* World);
 
     /**
-     * Called when the player discovers a new node.
-     * When clustering is enabled: adds to a neighbor cluster or merges; when disabled, always a solo marker.
+     * Handles proximity discovery for a single node index.
+     * Clusters or merges neighbors when enabled; rolls back state if marker create fails.
+     * @param World - The game world.
+     * @param NodeIndex - Index into the scanned ResourceNodes array.
      */
     void OnNodeDiscovered(UWorld* World, int32 NodeIndex);
 
-    /** Returns true if the node at the given index has already been discovered. */
+    /**
+     * Returns whether the node has been discovered (marker placed or extractor handled).
+     * @param NodeIndex - Index into the scanned ResourceNodes array.
+     */
     bool IsNodeDiscovered(int32 NodeIndex) const;
 
     /**
-     * Called when an extractor is placed on a node.
-     * Marks node as discovered, removes it from its cluster,
-     * deletes the cluster marker and recreates it if nodes remain.
+     * Updates cluster state when an extractor is placed on a node.
+     * Removes the node from its cluster and recreates or deletes the cluster marker.
+     * Rolls back the node removal if marker update fails.
+     * @param World - The game world.
+     * @param NodeLocation - World location of the resource node under the extractor.
      */
-     void OnExtractorPlaced(UWorld* World, const FVector& NodeLocation);
+    void OnExtractorPlaced(UWorld* World, const FVector& NodeLocation);
 
 private:
     bool MergeClusters(UWorld* World, int32 TargetIndex, int32 SourceIndex, bool bRemoveSourceMarker = true);
