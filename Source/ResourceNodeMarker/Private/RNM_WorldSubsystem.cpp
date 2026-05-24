@@ -29,7 +29,8 @@ void URNM_WorldSubsystem::InitializeConfig()
     ConfigData = FResourceNodeMarker_ConfigStruct::GetActiveConfig(GetWorld());
     bConfigLoaded = true;
 
-    PlayerProximityThresholdSq = (ConfigData.ProximityRadius * 100.0f) * (ConfigData.ProximityRadius * 100.0f);
+    const float ProximityRadiusCm = FResourceNodeMarker_ConfigStruct::GetProximityRadiusCm(ConfigData);
+    PlayerProximityThresholdSq = ProximityRadiusCm * ProximityRadiusCm;
 
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Config loaded"));
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Purity Settings ---"));
@@ -47,7 +48,7 @@ void URNM_WorldSubsystem::InitializeConfig()
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Proximity Settings ---"));
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Proximity Radius: %.0fm (%.0fcm)"),
         ConfigData.ProximityRadius,
-        ConfigData.ProximityRadius * 100.0f);
+        ProximityRadiusCm);
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: --- Extractor Settings ---"));
     UE_LOG(LogResourceNodeMarker, Log, TEXT("RNM: Extractor Marker Behavior: %d (%s)"),
         ConfigData.ExtractorMarkerBehavior,

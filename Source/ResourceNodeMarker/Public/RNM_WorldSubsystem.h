@@ -11,21 +11,36 @@
 #include "FGBuildableSubsystem.h"
 #include "RNM_WorldSubsystem.generated.h"
 
+/**
+ * Game-world orchestrator: config load, node scan, proximity discovery, extractor handling.
+ * One instance per gameplay UWorld; owns scanned nodes, spatial grid, and cluster state.
+ */
 UCLASS()
 class RESOURCENODEMARKER_API URNM_WorldSubsystem : public UWorldSubsystem
 {
     GENERATED_BODY()
 
 public:
+    /** Registers OnWorldBeginPlay hooks and creates ResourceVisuals / ClusterManager. */
     virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+
+    /** Clears proximity timer and buildable delegate bindings. */
     virtual void Deinitialize() override;
 
 private:
+    /** Loads config, scans nodes, rebuilds markers, and starts the proximity timer. */
     void InitializeConfig();
+
+    /** Rescans nodes, rebuilds cluster state, and recreates all RNM map markers. */
     void ScanAllNodes();
+
+    /** Timer callback: discovers nodes within ProximityRadius of the local player. */
     void CheckPlayerProximity();
+
+    /** Subscribes to AFGBuildableSubsystem::mBuildableAddedDelegate for extractor detection. */
     void BindBuildableDelegate();
 
+    /** Handles extractor placement when ExtractorMarkerBehavior is Remove (1). */
     UFUNCTION()
     void OnBuildableConstructed(AFGBuildable* Buildable);
 

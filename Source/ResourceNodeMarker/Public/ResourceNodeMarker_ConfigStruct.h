@@ -21,7 +21,7 @@ public:
     bool bMarkImpure = true;
 
     UPROPERTY(BlueprintReadWrite)
-    float ProximityRadius = 160.0f; //meters, converted to cm in code
+    float ProximityRadius = 160.0f; // meters, converted to cm in code
 
     UPROPERTY(BlueprintReadWrite)
     int32 CompassViewDistance = 2; // 2 = Mid
@@ -51,24 +51,55 @@ public:
     UPROPERTY(BlueprintReadWrite)
     bool bClusterNodes = true;
 
-    static float GetClusterRadiusCm(const FResourceNodeMarker_ConfigStruct& Config)
-    {
-        return FMath::Max(Config.ClusterRadius * 100.0f, 1.0f);
-    }
-
-    static float GetClusterHeightToleranceCm(const FResourceNodeMarker_ConfigStruct& Config)
-    {
-        return FMath::Max(Config.ClusterHeightTolerance * 100.0f, 0.0f);
-    }
-
+    /**
+     * Returns whether nearby nodes of the same resource share one marker.
+     * @param Config - Active mod configuration.
+     */
     static bool IsClusteringEnabled(const FResourceNodeMarker_ConfigStruct& Config)
     {
         return Config.bClusterNodes;
     }
 
-    /** Maps legacy config values after load (e.g. Highlight → Remove). Called by GetActiveConfig. */
+    /**
+     * Converts configured proximity radius from meters to cm with a minimum of 1 cm.
+     * @param Config - Active mod configuration.
+     */
+    static float GetProximityRadiusCm(const FResourceNodeMarker_ConfigStruct& Config)
+    {
+        return FMath::Max(Config.ProximityRadius * 100.0f, 1.0f);
+    }
+
+    /**
+     * Converts configured cluster radius from meters to cm with a minimum of 1 cm.
+     * @param Config - Active mod configuration.
+     */
+    static float GetClusterRadiusCm(const FResourceNodeMarker_ConfigStruct& Config)
+    {
+        return FMath::Max(Config.ClusterRadius * 100.0f, 1.0f);
+    }
+
+    /**
+     * Converts configured Z tolerance from meters to cm; negative values clamp to 0.
+     * @param Config - Active mod configuration.
+     */
+    static float GetClusterHeightToleranceCm(const FResourceNodeMarker_ConfigStruct& Config)
+    {
+        return FMath::Max(Config.ClusterHeightTolerance * 100.0f, 0.0f);
+    }
+
+    /**
+     * Maps legacy config values after load (e.g. Highlight → Remove).
+     * Called by GetActiveConfig; not needed when filling the struct elsewhere.
+     * @param Config - Config struct to normalize in place.
+     */
     static void NormalizeLegacyValues(FResourceNodeMarker_ConfigStruct& Config);
 
+    /**
+     * Loads the active mod configuration from SML ConfigManager.
+     * Returns defaults when world, game instance, or config registration is missing.
+     * @param WorldContext - Object used to resolve UWorld (typically the world subsystem).
+     * @return Populated config struct with legacy values normalized.
+     */
     static FResourceNodeMarker_ConfigStruct GetActiveConfig(UObject* WorldContext);
 };
 

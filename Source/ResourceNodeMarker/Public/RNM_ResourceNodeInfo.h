@@ -10,15 +10,21 @@ struct FResourceNodeInfo
 {
     GENERATED_BODY()
 
+    /** Live world actor; may be null after reload if not rescanned. */
     UPROPERTY()
     AFGResourceNode* NodeActor = nullptr;
 
+    /** World location at scan time (cm). */
     FVector Location;
+
     /** UClass FName of UFGResourceDescriptor — language-invariant, safe for save/rebuild and visuals. */
     FName ResourceName;
-    /** Same as GetResourceClass() at scan time; kept so markers still resolve visuals if NodeActor is gone. */
+
+    /** Cached GetResourceClass() at scan time; used when NodeActor is unavailable. */
     UPROPERTY()
     TSubclassOf<UFGResourceDescriptor> ResourceDescriptorClass = nullptr;
+
+    /** Node purity at scan time. */
     EResourcePurity Purity;
 };
 
@@ -27,15 +33,33 @@ struct FResourceNodeCluster
 {
     GENERATED_BODY()
 
+    /** Nodes grouped under one map marker. */
     TArray<FResourceNodeInfo> Nodes;
+
+    /** Centroid of Nodes; used as marker location. */
     FVector AverageLocation = FVector::ZeroVector;
+
     /** UFGResourceDescriptor UClass FName, same as FResourceNodeInfo::ResourceName. */
     FName ResourceName;
-    EResourcePurity DominantPurity = RP_Normal;
-    FGuid CurrentMarkerGUID; // track the active marker so it can be deleted on update
 
+    /** Purity with the highest node count; drives marker color. */
+    EResourcePurity DominantPurity = RP_Normal;
+
+    /** Active map marker guid; invalidated when the marker is removed. */
+    FGuid CurrentMarkerGUID;
+
+    /** Recomputes AverageLocation from Nodes. */
     void RecalculateCenter();
+
+    /** Recomputes DominantPurity from node purity counts. */
     void RecalculateDominantPurity();
+
+    /** Appends Other.Nodes and recalculates center and dominant purity. */
     void MergeWith(const FResourceNodeCluster& Other);
+
+    /**
+     * Map marker scale based on node count in the cluster.
+     * @return Scale factor passed to FMapMarker::Scale.
+     */
     float GetMarkerScale() const;
 };
