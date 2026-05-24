@@ -27,24 +27,15 @@ void ResolveClusterResourceContext(
         if (!OutResClass && N.NodeActor)
             OutResClass = N.NodeActor->GetResourceClass();
         if (OutLegacyDisplayKey == NAME_None && N.NodeActor)
-            OutLegacyDisplayKey = FName(*N.NodeActor->GetResourceName().ToString());
+        {
+            const FText ResourceName = N.NodeActor->GetResourceName();
+            if (!ResourceName.IsEmpty())
+            {
+                OutLegacyDisplayKey = FName(*RNM_MapMarkerService::StripRichTextMarkup(
+                    ResourceName.ToString()));
+            }
+        }
     }
-}
-
-bool InferIsFluidResource(const FName ClassKey, TSubclassOf<UFGResourceDescriptor> ResClass, const FResourceVisual& Visual)
-{
-    if (ResClass)
-    {
-        const EResourceForm Form = UFGItemDescriptor::GetForm(ResClass);
-        return Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS;
-    }
-
-    const FString ClassStr = ClassKey.ToString();
-    if (ClassStr.Contains(TEXT("Liquid")) || ClassStr.Contains(TEXT("Desc_Water")) || ClassStr.Contains(TEXT("WaterGeyser")))
-        return true;
-
-    FStampPreset Icons;
-    return Visual.IconID == Icons.Fluids;
 }
 
 FString GetClusterResourceDisplayLabel(
@@ -54,14 +45,29 @@ FString GetClusterResourceDisplayLabel(
     for (const FResourceNodeInfo& N : Cluster.Nodes)
     {
         if (N.NodeActor)
-            return N.NodeActor->GetResourceName().ToString();
+        {
+            if (TSubclassOf<UFGResourceDescriptor> NodeClass = N.NodeActor->GetResourceClass())
+            {
+                const FText ItemName = UFGItemDescriptor::GetItemName(NodeClass);
+                if (!ItemName.IsEmpty())
+                {
+                    return RNM_MapMarkerService::StripRichTextMarkup(ItemName.ToString());
+                }
+            }
+
+            const FText ResourceName = N.NodeActor->GetResourceName();
+            if (!ResourceName.IsEmpty())
+            {
+                return RNM_MapMarkerService::StripRichTextMarkup(ResourceName.ToString());
+            }
+        }
     }
 
     if (ResClass)
     {
         const FText ItemName = UFGItemDescriptor::GetItemName(ResClass);
         if (!ItemName.IsEmpty())
-            return ItemName.ToString();
+            return RNM_MapMarkerService::StripRichTextMarkup(ItemName.ToString());
     }
 
     return Cluster.ResourceName.ToString();
@@ -76,7 +82,7 @@ FString GetPurityDisplayLabel(const FResourceNodeCluster& Cluster, const EResour
 
         const FText GameLabel = Node.NodeActor->GetResoucePurityText();
         if (!GameLabel.IsEmpty())
-            return GameLabel.ToString();
+            return RNM_MapMarkerService::StripRichTextMarkup(GameLabel.ToString());
         continue;
     }
 
@@ -87,7 +93,7 @@ FString GetPurityDisplayLabel(const FResourceNodeCluster& Cluster, const EResour
         {
             const FText EnumLabel = PurityEnum->GetDisplayNameTextByValue(EnumValue);
             if (!EnumLabel.IsEmpty())
-                return EnumLabel.ToString();
+                return RNM_MapMarkerService::StripRichTextMarkup(EnumLabel.ToString());
         }
     }
 
@@ -145,7 +151,8 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     const FName VisualClassKey = ResClass ? ResClass->GetFName() : Cluster.ResourceName;
     FResourceVisual Visual = ResourceVisuals->GetResourceVisual(
         VisualClassKey, ResClass, Config.bUseIcons, LegacyDisplayKey);
-    const bool bIsFluid = InferIsFluidResource(VisualClassKey, ResClass, Visual);
+
+    const FString DisplayLabel = GetClusterResourceDisplayLabel(Cluster, ResClass);
 
     FMapMarker Marker;
     Marker.MarkerGUID = FGuid::NewGuid();
@@ -154,8 +161,8 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     Marker.MapMarkerType = ERepresentationType::RT_MapMarker;
     Marker.IconID = Visual.IconID;
     Marker.Scale = Cluster.GetMarkerScale();
-    Marker.Name = BuildClusterMarkerName(Cluster);
-    Marker.CategoryName = BuildCategoryName(bIsFluid, VisualClassKey);
+    Marker.Name = BuildClusterMarkerName(Cluster, DisplayLabel);
+    Marker.CategoryName = BuildCategoryName(DisplayLabel);
     Marker.CompassViewDistance = ParseCompassViewDistance(Config.CompassViewDistance);
 
     switch (Cluster.DominantPurity)
@@ -196,7 +203,9 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     return true;
 }
 
-FString RNM_MapMarkerService::BuildClusterMarkerName(const FResourceNodeCluster& Cluster)
+FString RNM_MapMarkerService::BuildClusterMarkerName(
+    const FResourceNodeCluster& Cluster,
+    const FString& ResourceLabel)
 {
     int32 PureCount = 0;
     int32 NormalCount = 0;
@@ -229,26 +238,70 @@ FString RNM_MapMarkerService::BuildClusterMarkerName(const FResourceNodeCluster&
         PurityStr += FormatPurityCountSegment(Cluster, ImpureCount, RP_Inpure);
     }
 
-    TSubclassOf<UFGResourceDescriptor> ResClass = nullptr;
-    FName UnusedLegacyKey = NAME_None;
-    ResolveClusterResourceContext(Cluster, ResClass, UnusedLegacyKey);
-
-    const FString ResourceLabel = GetClusterResourceDisplayLabel(Cluster, ResClass);
-
     if (PurityStr.IsEmpty())
         return ResourceLabel;
 
     return FString::Printf(TEXT("%s (%s)"), *ResourceLabel, *PurityStr);
 }
 
-bool RNM_MapMarkerService::IsRNMMapMarkerCategory(const FString& Category)
+FString RNM_MapMarkerService::StripRichTextMarkup(const FString& Text)
 {
-    return Category == TEXT("RNM::Ore") || Category == TEXT("RNM::Fluid")
-        || Category.StartsWith(TEXT("RNM::Ore#")) || Category.StartsWith(TEXT("RNM::Fluid#"));
+    FString Plain = Text;
+    for (;;)
+    {
+        const int32 Open = Plain.Find(TEXT("<"), ESearchCase::CaseSensitive);
+        if (Open == INDEX_NONE)
+            break;
+
+        const int32 Close = Plain.Find(TEXT(">"), ESearchCase::CaseSensitive, ESearchDir::FromStart, Open);
+        if (Close == INDEX_NONE)
+            break;
+
+        Plain.RemoveAt(Open, Close - Open + 1);
+    }
+    return Plain.TrimStartAndEnd();
+}
+
+bool RNM_MapMarkerService::IsRNMMapMarkerCategory(
+    const FString& Category,
+    const TSet<FString>* KnownDisplayCategories)
+{
+    if (Category == TEXT("RNM::Ore") || Category == TEXT("RNM::Fluid")
+        || Category.StartsWith(TEXT("RNM::Ore#")) || Category.StartsWith(TEXT("RNM::Fluid#")))
+        return true;
+
+    if (!KnownDisplayCategories)
+        return false;
+
+    const FString PlainCategory = StripRichTextMarkup(Category);
+    return KnownDisplayCategories->Contains(PlainCategory);
+}
+
+TSet<FString> RNM_MapMarkerService::CollectKnownDisplayCategories(const TArray<FResourceNodeInfo>& Nodes)
+{
+    TSet<FString> Categories;
+    for (const FResourceNodeInfo& Node : Nodes)
+    {
+        if (Node.ResourceDescriptorClass)
+        {
+            const FText ItemName = UFGItemDescriptor::GetItemName(Node.ResourceDescriptorClass);
+            if (!ItemName.IsEmpty())
+                Categories.Add(StripRichTextMarkup(ItemName.ToString()));
+        }
+
+        if (Node.NodeActor)
+        {
+            const FText ResourceName = Node.NodeActor->GetResourceName();
+            if (!ResourceName.IsEmpty())
+                Categories.Add(StripRichTextMarkup(ResourceName.ToString()));
+        }
+    }
+    return Categories;
 }
 
 bool RNM_MapMarkerService::TryParseClassIdFromCategory(const FString& Category, FName& OutClassFName)
 {
+    // Legacy markers only (RNM::Ore#Desc_OreIron_C). New markers use localized CategoryName.
     OutClassFName = NAME_None;
     if (IsLegacyRNMCategoryWithoutClassId(Category))
         return false;
@@ -280,12 +333,9 @@ bool RNM_MapMarkerService::TryParseClassIdFromMarkerName(const FString& MarkerNa
     return true;
 }
 
-FString RNM_MapMarkerService::BuildCategoryName(const bool bIsFluid, const FName StableClassId)
+FString RNM_MapMarkerService::BuildCategoryName(const FString& LocalizedDisplayLabel)
 {
-    const FString Base = bIsFluid ? TEXT("RNM::Fluid") : TEXT("RNM::Ore");
-    if (StableClassId != NAME_None)
-        return FString::Printf(TEXT("%s#%s"), *Base, *StableClassId.ToString());
-    return Base;
+    return StripRichTextMarkup(LocalizedDisplayLabel);
 }
 
 ECompassViewDistance RNM_MapMarkerService::ParseCompassViewDistance(int32 Value)
