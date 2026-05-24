@@ -12,6 +12,61 @@ bool IsLegacyRNMCategoryWithoutClassId(const FString& Category)
     return Category == TEXT("RNM::Ore") || Category == TEXT("RNM::Fluid");
 }
 
+void ResolveClusterResourceContext(
+    const FResourceNodeCluster& Cluster,
+    TSubclassOf<UFGResourceDescriptor>& OutResClass,
+    FName& OutLegacyDisplayKey)
+{
+    OutResClass = nullptr;
+    OutLegacyDisplayKey = NAME_None;
+
+    for (const FResourceNodeInfo& N : Cluster.Nodes)
+    {
+        if (!OutResClass && N.ResourceDescriptorClass)
+            OutResClass = N.ResourceDescriptorClass;
+        if (!OutResClass && N.NodeActor)
+            OutResClass = N.NodeActor->GetResourceClass();
+        if (OutLegacyDisplayKey == NAME_None && N.NodeActor)
+            OutLegacyDisplayKey = FName(*N.NodeActor->GetResourceName().ToString());
+    }
+}
+
+bool InferIsFluidResource(const FName ClassKey, TSubclassOf<UFGResourceDescriptor> ResClass, const FResourceVisual& Visual)
+{
+    if (ResClass)
+    {
+        const EResourceForm Form = UFGItemDescriptor::GetForm(ResClass);
+        return Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS;
+    }
+
+    const FString ClassStr = ClassKey.ToString();
+    if (ClassStr.Contains(TEXT("Liquid")) || ClassStr.Contains(TEXT("Desc_Water")) || ClassStr.Contains(TEXT("WaterGeyser")))
+        return true;
+
+    FStampPreset Icons;
+    return Visual.IconID == Icons.Fluids;
+}
+
+FString GetClusterResourceDisplayLabel(
+    const FResourceNodeCluster& Cluster,
+    TSubclassOf<UFGResourceDescriptor> ResClass)
+{
+    for (const FResourceNodeInfo& N : Cluster.Nodes)
+    {
+        if (N.NodeActor)
+            return N.NodeActor->GetResourceName().ToString();
+    }
+
+    if (ResClass)
+    {
+        const FText ItemName = UFGItemDescriptor::GetItemName(ResClass);
+        if (!ItemName.IsEmpty())
+            return ItemName.ToString();
+    }
+
+    return Cluster.ResourceName.ToString();
+}
+
 FString GetPurityDisplayLabel(const FResourceNodeCluster& Cluster, const EResourcePurity Purity)
 {
     for (const FResourceNodeInfo& Node : Cluster.Nodes)
@@ -84,25 +139,13 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
 
     TSubclassOf<UFGResourceDescriptor> ResClass = nullptr;
     FName LegacyDisplayKey = NAME_None;
-    for (const FResourceNodeInfo& N : Cluster.Nodes)
-    {
-        if (!ResClass && N.ResourceDescriptorClass)
-            ResClass = N.ResourceDescriptorClass;
-        if (!ResClass && N.NodeActor)
-            ResClass = N.NodeActor->GetResourceClass();
-        if (LegacyDisplayKey == NAME_None && N.NodeActor)
-            LegacyDisplayKey = FName(*N.NodeActor->GetResourceName().ToString());
-    }
+    ResolveClusterResourceContext(Cluster, ResClass, LegacyDisplayKey);
 
     // Cluster.ResourceName is descriptor UClass FName (Desc_*_C), not localized display text.
     const FName VisualClassKey = ResClass ? ResClass->GetFName() : Cluster.ResourceName;
     FResourceVisual Visual = ResourceVisuals->GetResourceVisual(
         VisualClassKey, ResClass, Config.bUseIcons, LegacyDisplayKey);
-    FStampPreset Icons;
-    const bool bIsFluid = ResClass
-        ? (UFGItemDescriptor::GetForm(ResClass) == EResourceForm::RF_LIQUID
-            || UFGItemDescriptor::GetForm(ResClass) == EResourceForm::RF_GAS)
-        : (Visual.IconID == Icons.Fluids);
+    const bool bIsFluid = InferIsFluidResource(VisualClassKey, ResClass, Visual);
 
     FMapMarker Marker;
     Marker.MarkerGUID = FGuid::NewGuid();
@@ -186,28 +229,11 @@ FString RNM_MapMarkerService::BuildClusterMarkerName(const FResourceNodeCluster&
         PurityStr += FormatPurityCountSegment(Cluster, ImpureCount, RP_Inpure);
     }
 
-    FString ResourceLabel;
     TSubclassOf<UFGResourceDescriptor> ResClass = nullptr;
-    for (const FResourceNodeInfo& N : Cluster.Nodes)
-    {
-        if (!ResClass && N.ResourceDescriptorClass)
-            ResClass = N.ResourceDescriptorClass;
-        if (N.NodeActor)
-        {
-            if (ResourceLabel.IsEmpty())
-                ResourceLabel = N.NodeActor->GetResourceName().ToString();
-            if (!ResClass)
-                ResClass = N.NodeActor->GetResourceClass();
-        }
-    }
-    if (ResourceLabel.IsEmpty() && ResClass)
-    {
-        const FText ItemName = UFGItemDescriptor::GetItemName(ResClass);
-        if (!ItemName.IsEmpty())
-            ResourceLabel = ItemName.ToString();
-    }
-    if (ResourceLabel.IsEmpty())
-        ResourceLabel = Cluster.ResourceName.ToString();
+    FName UnusedLegacyKey = NAME_None;
+    ResolveClusterResourceContext(Cluster, ResClass, UnusedLegacyKey);
+
+    const FString ResourceLabel = GetClusterResourceDisplayLabel(Cluster, ResClass);
 
     if (PurityStr.IsEmpty())
         return ResourceLabel;

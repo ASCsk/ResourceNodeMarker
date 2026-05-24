@@ -19,7 +19,7 @@ void AppendUniqueKey(TArray<FName>& Keys, const FName& N)
         Keys.Add(N);
 }
 
-/** In-game map icon ids (FIconsPreset). */
+/** In-game map icon ids — must stay in sync with FIconsPreset in RNM_ResourceVisuals.h. */
 namespace InGameIcon
 {
     constexpr int Copper = 198;
@@ -216,24 +216,34 @@ void ApplyNeutralFallbackColors(FResourceVisual& Visual)
         Visual.ImpureColor);
 }
 
-void ApplyFallbackColors(
+bool TryApplyKnownColors(
     FResourceVisual& Visual,
     const FString& ClassName,
     const TArray<FName>& ClassKeys,
     const TFunctionRef<TOptional<FResourceVisual>(const TArray<FName>&, bool)>& TryMapKeys)
 {
     if (ApplyCatalogColors(Visual, ClassName))
-        return;
+        return true;
 
     if (const TOptional<FResourceVisual> ClassColors = TryMapKeys(ClassKeys, /*bIconMapOnly=*/false))
     {
         Visual.PureColor = ClassColors->PureColor;
         Visual.NormalColor = ClassColors->NormalColor;
         Visual.ImpureColor = ClassColors->ImpureColor;
-        return;
+        return true;
     }
 
-    ApplyNeutralFallbackColors(Visual);
+    return false;
+}
+
+void ApplyFallbackColors(
+    FResourceVisual& Visual,
+    const FString& ClassName,
+    const TArray<FName>& ClassKeys,
+    const TFunctionRef<TOptional<FResourceVisual>(const TArray<FName>&, bool)>& TryMapKeys)
+{
+    if (!TryApplyKnownColors(Visual, ClassName, ClassKeys, TryMapKeys))
+        ApplyNeutralFallbackColors(Visual);
 }
 
 /** @return false when neutral gray fallback was applied. */
@@ -243,16 +253,8 @@ bool ApplyKnownColorsOrNeutral(
     const TArray<FName>& ClassKeys,
     const TFunctionRef<TOptional<FResourceVisual>(const TArray<FName>&, bool)>& TryMapKeys)
 {
-    if (ApplyCatalogColors(Visual, ClassName))
+    if (TryApplyKnownColors(Visual, ClassName, ClassKeys, TryMapKeys))
         return true;
-
-    if (const TOptional<FResourceVisual> ClassColors = TryMapKeys(ClassKeys, /*bIconMapOnly=*/false))
-    {
-        Visual.PureColor = ClassColors->PureColor;
-        Visual.NormalColor = ClassColors->NormalColor;
-        Visual.ImpureColor = ClassColors->ImpureColor;
-        return true;
-    }
 
     ApplyNeutralFallbackColors(Visual);
     return false;
@@ -261,7 +263,11 @@ bool ApplyKnownColorsOrNeutral(
 void LogUnknownVisualOnce(const FName& ResourceClassFName)
 {
     static TSet<FName> Warned;
+    static constexpr int32 MaxWarnedEntries = 128;
     if (Warned.Contains(ResourceClassFName))
+        return;
+
+    if (Warned.Num() >= MaxWarnedEntries)
         return;
 
     Warned.Add(ResourceClassFName);
