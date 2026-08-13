@@ -83,7 +83,7 @@ void URNM_WorldSubsystem::ScanAllNodes()
     if (!World || !ClusterManager || !ResourceVisuals) return;
 
     RNM_NodeScanner::ScanNodes(World, ResourceNodes);
-    const float GridCellSizeCm = FResourceNodeMarker_ConfigStruct::GetClusterRadiusCm(ConfigData);
+    GridCellSizeCm = FResourceNodeMarker_ConfigStruct::GetClusterRadiusCm(ConfigData);
     RNM_NodeScanner::BuildSpatialGrid(ResourceNodes, SpatialGrid, GridCellSizeCm);
 
     ClusterManager->Initialize(ResourceNodes, SpatialGrid, ResourceVisuals, ConfigData);
@@ -110,8 +110,11 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
     if (!PlayerPawn) return;
 
     const FVector PlayerLocation = PlayerPawn->GetActorLocation();
+    const FIntVector PlayerCell = RNM_NodeScanner::GetGridCell(PlayerLocation, GridCellSizeCm);
+    const float ProximityRadiusCm = FMath::Sqrt(PlayerProximityThresholdSq);
+    const TArray<int32> NearbyNodeIndices = RNM_NodeScanner::GetNeighborCellIndicesByRadius(SpatialGrid, PlayerCell, GridCellSizeCm, ProximityRadiusCm);
 
-    for (int32 i = 0; i < ResourceNodes.Num(); i++)
+    for (int32 i : NearbyNodeIndices)
     {
         if (ClusterManager->IsNodeDiscovered(i))
             continue;

@@ -23,7 +23,7 @@ void RNM_NodeScanner::ScanNodes(UWorld* World, TArray<FResourceNodeInfo>& OutNod
         Info.Location = Node->GetActorLocation();
         Info.ResourceName = ResClass->GetFName();
         Info.ResourceDescriptorClass = ResClass;
-        Info.Purity = Node->GetResoucePurity();
+        Info.Purity = Node->GetResourcePurity();
 
         OutNodes.Add(Info);
     }
@@ -69,6 +69,33 @@ TArray<int32> RNM_NodeScanner::GetNeighborCellIndices(const TMap<FIntVector, TAr
         for (int32 dy = -1; dy <= 1; dy++)
         {
             FIntVector NeighborCell(Cell.X + dx, Cell.Y + dy, 0);
+            if (const TArray<int32>* Indices = Grid.Find(NeighborCell))
+            {
+                Result.Append(*Indices);
+            }
+        }
+    }
+
+    return Result;
+}
+
+TArray<int32> RNM_NodeScanner::GetNeighborCellIndicesByRadius(
+    const TMap<FIntVector, TArray<int32>>& Grid,
+    const FIntVector& CenterCell,
+    float CellSizeCm,
+    float SearchRadiusCm)
+{
+    TArray<int32> Result;
+
+    // Calculate how many cells to query in each direction based on search radius
+    const float SafeCellSize = FMath::Max(CellSizeCm, 1.0f);
+    const int32 CellRange = FMath::CeilToInt(SearchRadiusCm / SafeCellSize);
+
+    for (int32 dx = -CellRange; dx <= CellRange; dx++)
+    {
+        for (int32 dy = -CellRange; dy <= CellRange; dy++)
+        {
+            FIntVector NeighborCell(CenterCell.X + dx, CenterCell.Y + dy, 0);
             if (const TArray<int32>* Indices = Grid.Find(NeighborCell))
             {
                 Result.Append(*Indices);
