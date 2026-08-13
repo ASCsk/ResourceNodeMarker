@@ -45,6 +45,20 @@ public:
      */
     static TArray<int32> GetNeighborCellIndices(const TMap<FIntVector, TArray<int32>>& Grid, const FIntVector& Cell);
 
+    /**
+     * Returns node indices within SearchRadiusCm of center cell, querying variable grid neighborhood.
+     * @param Grid - Spatial grid produced by BuildSpatialGrid.
+     * @param CenterCell - Center cell from GetGridCell.
+     * @param CellSizeCm - Grid cell size (matches BuildSpatialGrid call).
+     * @param SearchRadiusCm - Search radius in cm; automatically queries enough cells to cover distance.
+     * @return Flat list of indices into the original Nodes array.
+     */
+    static TArray<int32> GetNeighborCellIndicesByRadius(
+        const TMap<FIntVector, TArray<int32>>& Grid,
+        const FIntVector& CenterCell,
+        float CellSizeCm,
+        float SearchRadiusCm);
+
     /** Default cluster radius when config is unavailable (250 m, in cm). */
     static constexpr float DEFAULT_CLUSTER_RADIUS_CM = 25000.0f;
 };

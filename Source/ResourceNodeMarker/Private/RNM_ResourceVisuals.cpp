@@ -147,25 +147,29 @@ FLinearColor ColorFromHex(const FString& Hex)
     return FLinearColor::FromSRGBColor(FColor::FromHex(Hex));
 }
 
+bool IsFluidResource(TSubclassOf<UFGResourceDescriptor> ResClass)
+{
+    if (!ResClass) return false;
+
+    const EResourceForm Form = UFGItemDescriptor::GetForm(ResClass);
+    if (Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS)
+        return true;
+
+    if (ResClass->IsChildOf(UFGResourceDescriptorGeyser::StaticClass()))
+        return true;
+
+    if (const FResourceCatalogEntry* Entry = FindResourceCatalogEntry(ResClass->GetName()))
+        return Entry->bLiquid;
+
+    return false;
+}
+
 int32 GetStampIconIdForOreOrFluid(TSubclassOf<UFGResourceDescriptor> ResClass)
 {
     FStampPreset Sp;
     if (!ResClass) return Sp.Rock;
 
-    const EResourceForm Form = UFGItemDescriptor::GetForm(ResClass);
-    if (Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS)
-        return Sp.Fluids;
-
-    if (ResClass->IsChildOf(UFGResourceDescriptorGeyser::StaticClass()))
-        return Sp.Fluids;
-
-    if (const FResourceCatalogEntry* Entry = FindResourceCatalogEntry(ResClass->GetName()))
-    {
-        if (Entry->bLiquid)
-            return Sp.Fluids;
-    }
-
-    return Sp.Rock;
+    return IsFluidResource(ResClass) ? Sp.Fluids : Sp.Rock;
 }
 
 int32 ResolveInGameIconIdFromResourceClass(TSubclassOf<UFGResourceDescriptor> ResClass)
@@ -173,19 +177,11 @@ int32 ResolveInGameIconIdFromResourceClass(TSubclassOf<UFGResourceDescriptor> Re
     FStampPreset Sp;
     if (!ResClass) return Sp.QuestionMark;
 
-    const EResourceForm Form = UFGItemDescriptor::GetForm(ResClass);
-    if (Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS)
-        return Sp.Fluids;
-
-    if (ResClass->IsChildOf(UFGResourceDescriptorGeyser::StaticClass()))
+    if (IsFluidResource(ResClass))
         return Sp.Fluids;
 
     if (const FResourceCatalogEntry* Entry = FindResourceCatalogEntry(ResClass->GetName()))
-    {
-        if (Entry->bLiquid)
-            return Sp.Fluids;
         return Entry->IconId != 0 ? Entry->IconId : Sp.Rock;
-    }
 
     return Sp.Rock;
 }

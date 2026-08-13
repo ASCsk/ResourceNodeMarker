@@ -51,6 +51,7 @@ private:
 
     // 160m default in cm squared, overwritten by config on world begin play
     float PlayerProximityThresholdSq = (160.0f * 100.0f) * (160.0f * 100.0f);
+    float GridCellSizeCm = 15000.0f;
 
     UPROPERTY()
     URNM_ResourceVisuals* ResourceVisuals = nullptr;
