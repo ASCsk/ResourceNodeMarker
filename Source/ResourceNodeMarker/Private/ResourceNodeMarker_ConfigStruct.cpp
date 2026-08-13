@@ -6,6 +6,23 @@ void FResourceNodeMarker_ConfigStruct::NormalizeLegacyValues(FResourceNodeMarker
     // Legacy Highlight enum value — treat as Remove until UE asset drops the entry
     if (Config.ExtractorMarkerBehavior == 2)
         Config.ExtractorMarkerBehavior = 1;
+
+    // Validate radius values
+    if (Config.ProximityRadius <= 0.0f)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Invalid ProximityRadius %.0f, resetting to default 16000"), Config.ProximityRadius);
+        Config.ProximityRadius = 16000.0f;
+    }
+    if (Config.ClusterRadius <= 0.0f)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Invalid ClusterRadius %.0f, resetting to default 25000"), Config.ClusterRadius);
+        Config.ClusterRadius = 25000.0f;
+    }
+    if (Config.ClusterHeightTolerance < 0.0f)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM: Invalid ClusterHeightTolerance %.0f, resetting to default 10000"), Config.ClusterHeightTolerance);
+        Config.ClusterHeightTolerance = 10000.0f;
+    }
 }
 
 FResourceNodeMarker_ConfigStruct FResourceNodeMarker_ConfigStruct::GetActiveConfig(UObject* WorldContext)

@@ -80,7 +80,21 @@ void URNM_WorldSubsystem::InitializeConfig()
 void URNM_WorldSubsystem::ScanAllNodes()
 {
     UWorld* World = GetWorld();
-    if (!World || !ClusterManager || !ResourceVisuals) return;
+    if (!World)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_WorldSubsystem::ScanAllNodes: World is null"));
+        return;
+    }
+    if (!ClusterManager)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_WorldSubsystem::ScanAllNodes: ClusterManager not initialized"));
+        return;
+    }
+    if (!ResourceVisuals)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_WorldSubsystem::ScanAllNodes: ResourceVisuals not initialized"));
+        return;
+    }
 
     RNM_NodeScanner::ScanNodes(World, ResourceNodes);
     GridCellSizeCm = FResourceNodeMarker_ConfigStruct::GetClusterRadiusCm(ConfigData);
@@ -116,6 +130,12 @@ void URNM_WorldSubsystem::CheckPlayerProximity()
 
     for (int32 i : NearbyNodeIndices)
     {
+        if (!ResourceNodes.IsValidIndex(i))
+        {
+            UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_WorldSubsystem::CheckPlayerProximity: Spatial grid returned invalid index %d"), i);
+            continue;
+        }
+
         if (ClusterManager->IsNodeDiscovered(i))
             continue;
 

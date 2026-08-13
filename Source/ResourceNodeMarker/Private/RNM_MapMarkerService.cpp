@@ -137,9 +137,11 @@ bool RNM_MapMarkerService::CreateOrUpdateClusterMarker(
     if (!bIsUpdate && !MapManager->CanAddNewMapMarker())
     {
         UE_LOG(LogResourceNodeMarker, Warning,
-            TEXT("RNM_MapMarkerService: Map marker limit reached (%d), skipping marker for %s"),
+            TEXT("RNM_MapMarkerService: Map marker limit reached (%d), skipping marker for %s at %s (%d nodes)"),
             MapManager->GetMaxNumMapMarkers(),
-            *Cluster.ResourceName.ToString());
+            *Cluster.ResourceName.ToString(),
+            *Cluster.AverageLocation.ToString(),
+            Cluster.Nodes.Num());
         return false;
     }
 

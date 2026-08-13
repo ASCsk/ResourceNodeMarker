@@ -384,6 +384,11 @@ bool URNM_ClusterManager::MergeClusters(
 void URNM_ClusterManager::OnNodeDiscovered(UWorld* World, int32 NodeIndex)
 {
     if (!ResourceNodes || !SpatialGrid) return;
+    if (!ResourceNodes->IsValidIndex(NodeIndex))
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_ClusterManager::OnNodeDiscovered: Invalid NodeIndex %d (array size %d)"), NodeIndex, ResourceNodes->Num());
+        return;
+    }
 
     const FResourceNodeInfo& NewNode = (*ResourceNodes)[NodeIndex];
 
@@ -617,6 +622,11 @@ void URNM_ClusterManager::OnExtractorPlaced(UWorld* World, const FVector& NodeLo
     }
 
     int32 ClusterIndex = *ClusterIdxPtr;
+    if (!DiscoveredClusters.IsValidIndex(ClusterIndex))
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_ClusterManager::OnExtractorPlaced: Invalid ClusterIndex %d (array size %d)"), ClusterIndex, DiscoveredClusters.Num());
+        return;
+    }
     FResourceNodeCluster& Cluster = DiscoveredClusters[ClusterIndex];
     const FResourceNodeCluster ClusterBefore = Cluster;
 
@@ -635,7 +645,11 @@ void URNM_ClusterManager::OnExtractorPlaced(UWorld* World, const FVector& NodeLo
             break;
         }
     }
-    if (!bRemovedNode) return;
+    if (!bRemovedNode)
+    {
+        UE_LOG(LogResourceNodeMarker, Warning, TEXT("RNM_ClusterManager: Extractor node not found in cluster at %s"), *NodeLocation.ToString());
+        return;
+    }
 
     Cluster.Nodes.RemoveAll(NodeMatchesLocation);
     NodeToClusterMap.Remove(FoundNodeIndex);
