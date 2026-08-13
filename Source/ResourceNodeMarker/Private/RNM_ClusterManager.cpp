@@ -81,12 +81,15 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
     AFGMapManager* MapManager = AFGMapManager::Get(World);
     if (!MapManager) return;
 
+    const TSet<FString> KnownDisplayCategories =
+        RNM_MapMarkerService::CollectKnownDisplayCategories(*ResourceNodes);
+
     TArray<FMapMarker> ExistingMarkers;
     MapManager->GetMapMarkers(ExistingMarkers);
 
     for (const FMapMarker& Marker : ExistingMarkers)
     {
-        if (!RNM_MapMarkerService::IsRNMMapMarkerCategory(Marker.CategoryName))
+        if (!RNM_MapMarkerService::IsRNMMapMarkerCategory(Marker.CategoryName, &KnownDisplayCategories))
             continue;
 
         FName StableClassId;
@@ -106,7 +109,8 @@ void URNM_ClusterManager::RebuildClustersFromExistingMarkers(UWorld* World)
                 NameForLegacy = NameForLegacy.Left(TagIdx);
         }
         const int32 ParenIdx = NameForLegacy.Find(TEXT(" ("));
-        const FString LegacyPrefix = (ParenIdx != INDEX_NONE) ? NameForLegacy.Left(ParenIdx) : NameForLegacy;
+        const FString LegacyPrefix = RNM_MapMarkerService::StripRichTextMarkup(
+            (ParenIdx != INDEX_NONE) ? NameForLegacy.Left(ParenIdx) : NameForLegacy);
 
         TArray<int32> ClusterNodeIndices;
         for (int32 NodeIndex : CandidateIndices)
@@ -199,13 +203,17 @@ void URNM_ClusterManager::DeleteAllRNMMarkers(UWorld* World)
     AFGMapManager* MapManager = AFGMapManager::Get(World);
     if (!MapManager) return;
 
+    const TSet<FString> KnownDisplayCategories = ResourceNodes
+        ? RNM_MapMarkerService::CollectKnownDisplayCategories(*ResourceNodes)
+        : TSet<FString>();
+
     TArray<FMapMarker> AllMarkers;
     MapManager->GetMapMarkers(AllMarkers);
 
     TArray<FMapMarker> MarkersToRemove;
     for (const FMapMarker& Marker : AllMarkers)
     {
-        if (RNM_MapMarkerService::IsRNMMapMarkerCategory(Marker.CategoryName))
+        if (RNM_MapMarkerService::IsRNMMapMarkerCategory(Marker.CategoryName, &KnownDisplayCategories))
         {
             MarkersToRemove.Add(Marker);
         }

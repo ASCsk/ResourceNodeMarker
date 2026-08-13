@@ -2,6 +2,7 @@
 #include "ResourceNodeMarker.h"
 #include "FGItemDescriptor.h"
 #include "FGResourceDescriptor.h"
+#include "FGResourceDescriptorGeyser.h"
 
 namespace
 {
@@ -54,7 +55,8 @@ static const TCHAR* LimestoneMapKeys[] = {
 static const TCHAR* CateriumMapKeys[] = {
     TEXT("Caterium Ore"), TEXT("Desc_OreCaterium_C"), TEXT("Desc_OreCaterium"), TEXT("BP_OreCaterium_C") };
 static const TCHAR* CoalMapKeys[] = {
-    TEXT("Coal"), TEXT("Desc_OreCoal_C"), TEXT("Desc_OreCoal"), TEXT("BP_OreCoal_C") };
+    TEXT("Coal"), TEXT("Desc_Coal_C"), TEXT("Desc_Coal"), TEXT("BP_Coal_C"),
+    TEXT("Desc_OreCoal_C"), TEXT("Desc_OreCoal"), TEXT("BP_OreCoal_C") };
 static const TCHAR* SulfurMapKeys[] = {
     TEXT("Sulfur"), TEXT("Desc_OreSulfur_C"), TEXT("Desc_OreSulfur"), TEXT("BP_OreSulfur_C") };
 static const TCHAR* BauxiteMapKeys[] = {
@@ -87,6 +89,7 @@ static const FResourceCatalogEntry ResourceCatalog[] = {
     { TEXT("Desc_OreSulfur"), TEXT("E6E615"), false, InGameIcon::Sulfur, SulfurMapKeys, UE_ARRAY_COUNT(SulfurMapKeys) },
     { TEXT("Desc_OreIron"), TEXT("93959E"), false, InGameIcon::Iron, IronMapKeys, UE_ARRAY_COUNT(IronMapKeys) },
     { TEXT("Desc_Stone"), TEXT("D1B97B"), false, InGameIcon::Limestone, LimestoneMapKeys, UE_ARRAY_COUNT(LimestoneMapKeys) },
+    { TEXT("Desc_Coal"), TEXT("403B3B"), false, InGameIcon::Coal, CoalMapKeys, UE_ARRAY_COUNT(CoalMapKeys) },
     { TEXT("Desc_OreCoal"), TEXT("403B3B"), false, InGameIcon::Coal, CoalMapKeys, UE_ARRAY_COUNT(CoalMapKeys) },
     { TEXT("Desc_OreSAM"), TEXT("A332C9"), false, InGameIcon::Sam, SamMapKeys, UE_ARRAY_COUNT(SamMapKeys) },
     { TEXT("Desc_SAM"), TEXT("A332C9"), false, InGameIcon::Sam, SamMapKeys, UE_ARRAY_COUNT(SamMapKeys) },
@@ -153,6 +156,15 @@ int32 GetStampIconIdForOreOrFluid(TSubclassOf<UFGResourceDescriptor> ResClass)
     if (Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS)
         return Sp.Fluids;
 
+    if (ResClass->IsChildOf(UFGResourceDescriptorGeyser::StaticClass()))
+        return Sp.Fluids;
+
+    if (const FResourceCatalogEntry* Entry = FindResourceCatalogEntry(ResClass->GetName()))
+    {
+        if (Entry->bLiquid)
+            return Sp.Fluids;
+    }
+
     return Sp.Rock;
 }
 
@@ -165,8 +177,15 @@ int32 ResolveInGameIconIdFromResourceClass(TSubclassOf<UFGResourceDescriptor> Re
     if (Form == EResourceForm::RF_LIQUID || Form == EResourceForm::RF_GAS)
         return Sp.Fluids;
 
+    if (ResClass->IsChildOf(UFGResourceDescriptorGeyser::StaticClass()))
+        return Sp.Fluids;
+
     if (const FResourceCatalogEntry* Entry = FindResourceCatalogEntry(ResClass->GetName()))
+    {
+        if (Entry->bLiquid)
+            return Sp.Fluids;
         return Entry->IconId != 0 ? Entry->IconId : Sp.Rock;
+    }
 
     return Sp.Rock;
 }
@@ -296,6 +315,14 @@ URNM_ResourceVisuals::URNM_ResourceVisuals()
             ResourceVisualMap.Add(FName(Entry.MapKeys[i]), Visual);
             if (Entry.IconId != 0)
                 IconMap.Add(FName(Entry.MapKeys[i]), Entry.IconId);
+        }
+
+        ResourceVisualMap.Add(FName(Entry.ClassPattern), Visual);
+        ResourceVisualMap.Add(FName(FString::Printf(TEXT("%s_C"), Entry.ClassPattern)), Visual);
+        if (Entry.IconId != 0)
+        {
+            IconMap.Add(FName(Entry.ClassPattern), Entry.IconId);
+            IconMap.Add(FName(FString::Printf(TEXT("%s_C"), Entry.ClassPattern)), Entry.IconId);
         }
     }
 }

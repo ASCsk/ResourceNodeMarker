@@ -40,10 +40,19 @@ public:
 
     /**
      * Returns true if Category is an RNM-owned marker category.
-     * Accepts legacy RNM::Ore / RNM::Fluid and stable RNM::Ore#ClassFName forms.
+     * Accepts legacy RNM::Ore / RNM::Fluid / RNM::Ore#ClassFName and localized display categories.
      * @param Category - FMapMarker::CategoryName from the map manager.
+     * @param KnownDisplayCategories - Required for localized categories; pass from CollectKnownDisplayCategories.
      */
-    static bool IsRNMMapMarkerCategory(const FString& Category);
+    static bool IsRNMMapMarkerCategory(
+        const FString& Category,
+        const TSet<FString>* KnownDisplayCategories);
+
+    /** Removes Satisfactory rich-text markup (e.g. &lt;Bold&gt;) from map marker strings. */
+    static FString StripRichTextMarkup(const FString& Text);
+
+    /** Localized resource display labels for all scanned node types in this session. */
+    static TSet<FString> CollectKnownDisplayCategories(const TArray<FResourceNodeInfo>& Nodes);
 
     /**
      * Parses a stable resource class id embedded in CategoryName.
@@ -62,17 +71,18 @@ public:
     static bool TryParseClassIdFromMarkerName(const FString& MarkerName, FName& OutClassFName);
 
     /**
-     * Builds the map filter category string for an RNM marker.
-     * @param bIsFluid - true for liquids/gases (RNM::Fluid), false for solids (RNM::Ore).
-     * @param StableClassId - Optional UClass FName appended after # for locale-safe rebuild.
+     * Builds the map filter category string shown in the map UI dropdown.
+     * @param LocalizedDisplayLabel - Localized resource name (marker title resource part).
      * @return Category string stored on FMapMarker::CategoryName.
      */
-    static FString BuildCategoryName(bool bIsFluid, FName StableClassId = NAME_None);
+    static FString BuildCategoryName(const FString& LocalizedDisplayLabel);
 
     /** Squared distance (uu) used to match extractor placement to a scanned node location. */
     static constexpr float MARKER_LOCATION_TOLERANCE_SQ = 100.0f * 100.0f;
 
 private:
     /** Localized display name plus purity counts, e.g. "Iron Ore (2 Pure, 1 Normal)". */
-    static FString BuildClusterMarkerName(const FResourceNodeCluster& Cluster);
+    static FString BuildClusterMarkerName(
+        const FResourceNodeCluster& Cluster,
+        const FString& ResourceLabel);
 };
